@@ -6,8 +6,9 @@ and query/sort semantics — with unit tests covering every rule in ARCHITECTURE
 UI and no database anywhere in the phase.
 
 ## Prerequisites
-- [ ] **Phase 0 is done.** As of writing, the repo contains only `docs/` — there is no `pom.xml`
-      and no `src/`. Phase 1 cannot start until `mvn test` runs. See "Step 0" below.
+- [x] **Phase 0 is essentially done** — verified against the working tree on 2026-08-17.
+      See `docs/phases/phase-0-skeleton.md` for the phase itself and "Step 0" below for the
+      four small carry-over items that should be closed before Phase 1 adds ~20 new files.
 - [ ] Reread ARCHITECTURE.md §4 (data model), §7.4 (filter/sort), §7.5 (rich content), §8 (testing).
 
 ## In scope
@@ -39,20 +40,53 @@ UI and no database anywhere in the phase.
 
 ---
 
-## Step 0 — unblock: finish Phase 0 first (do not skip)
+## Verified starting state (checked 2026-08-17)
 
-Phase 1 is source-only, but you need a build that compiles and runs tests. Minimum bar:
+What actually exists, and what it means for this phase:
 
-1. `pom.xml` at the repo root: Java 21 (`maven.compiler.release=21`), `javafx-controls`
-   21.x, `org.xerial:sqlite-jdbc`, `junit-jupiter` + `assertj-core` (test scope),
-   `maven-surefire-plugin` recent enough for JUnit 5, `javafx-maven-plugin`.
-   **No `module-info.java`** (§11 Risk 5).
-2. `src/main/java/com/emgi/timeline/App.java` — empty styled window.
-3. `src/main/resources/com/emgi/timeline/css/base.css` and `theme-mono.css`.
-4. `.gitignore` (`target/`, IDE files), `README.md`.
-5. Verify: `mvn -q test` passes (zero tests is fine), `mvn javafx:run` opens the window.
+| Phase 0 gate | State | Consequence for Phase 1 |
+|---|---|---|
+| `pom.xml` — Java 21, JavaFX 21.0.7, sqlite-jdbc 3.49.1.0, junit-bom 5.12.2, assertj 3.27.3, surefire 3.5.6, javafx-maven-plugin | Present and correct | **No pom changes needed this phase.** `junit-jupiter` (the aggregator, not just `-api`) and `assertj-core` are already test-scoped, so every test below compiles as-is. |
+| `Launcher` + `App` + `view/MainView` + `MainView.fxml` + `base.css` + `theme-mono.css` | All present | Untouched by Phase 1. Do not edit them. |
+| `BuildSanityTest` — 2 tests | Green. `target/surefire-reports/` reports `Tests run: 2, Failures: 0, Errors: 0` | The build is real; a new failing test will be visible. |
+| No `module-info.java` | Confirmed absent | §11 Risk 5 holds. |
+| Nothing leaked forward (no `java.sql`, no `domain.*`) | Confirmed — only 4 `.java` files exist, none import either | `domain/` starts genuinely empty, which is what makes the purity test in Step 9 meaningful from day one. |
+| `git init` + commit | Done — 2 commits on `main`, pushed to `origin/main` | — |
 
-Everything below assumes that is green.
+**Not verifiable from a headless session — confirm these yourself before starting:**
+`mvn javafx:run` opens the styled 900×640 window (Phase 0 gate 10.2), and the comment-out
+check proves the styling comes from the stylesheets rather than JavaFX defaults (gate 10.3).
+
+---
+
+## Step 0 — four carry-overs from Phase 0 (~10 minutes, do them first)
+
+None of these block compilation. All four get worse if you start Phase 1 first, because this
+phase roughly triples the number of files in the repo.
+
+1. **`README.md` is 0 bytes.** Step 9 of the Phase 0 doc has the exact content — paste it in.
+2. **`.gitignore` is missing `*.db`.** It currently has only `*.db-journal`. Phase 2 creates
+   temp SQLite files for `SqliteIdeaRepositoryTest`; add the line now, while it's a one-word
+   edit rather than an "why is a 40 KB binary in my diff" moment.
+3. **The working tree is dirty with pure line-ending churn.** `git status` shows all 9 source
+   files modified, but `git diff --ignore-all-space` is *empty* — every change is CRLF↔LF, not
+   content. Fix it before adding 20 files:
+   ```powershell
+   # .gitattributes at the repo root
+   * text=auto eol=lf
+   ```
+   ```powershell
+   git add .gitattributes
+   git add --renormalize .
+   git commit -m "chore: normalize line endings"
+   ```
+   Left alone, every Phase 1 commit will show hundreds of phantom changed lines and `git diff`
+   stops being usable for review.
+4. **Close out `phase-0-skeleton.md`.** Its checklists and Retro are still blank. Fill in the
+   actual hours and tick the file list — the retro is only useful if it's written while you
+   still remember what happened. Its retro also pre-registered two blueprint questions worth
+   answering now: whether `Launcher.java` gets added to ARCHITECTURE.md §3, and whether §9
+   should acknowledge that `MainView` landed in Phase 0 rather than Phase 3.
 
 ---
 

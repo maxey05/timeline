@@ -16,3 +16,4 @@ Thumbs.db
 
 # Local databases
 *.db-journal
+*.db
