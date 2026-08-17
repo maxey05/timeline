@@ -1,0 +1,24 @@
+/*
+* contains layout, spacing, and typography only, no colors.
+*/
+
+.root
+{
+    -fx-font-family: "Segoe UI", "Inter", "Helvetica Neue", sans-serif;
+    -fx-font-size: 13px;
+}
+
+.root-pane
+{
+    -fx-padding: 0;
+}
+
+.placeholder-pane
+{
+    -fx-padding: 32px;
+}
+
+.placeholder-label
+{
+    -fx-font-size: 15px;
+}

@@ -1,0 +1,19 @@
+/*colors only*/
+
+.root
+{
+    -text-primary: #1a1a1a;
+    -text-secondary: #6b6b6b;
+    -surface: #ffffff;
+    -surface-hover: #f7f7f7;
+    -surface-selected: #f0f0f0;
+    -separator: #ececec;
+
+    -fx-background-color: -surface;
+    -fx-text-fill: -text-primary;
+}
+
+.placeholder-label
+{
+    -fx-text-fill: -text-secondary;
+}

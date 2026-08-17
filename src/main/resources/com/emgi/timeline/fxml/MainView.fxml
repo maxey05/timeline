@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.emgi.timeline.view.MainView"
+            styleClass="root-pane">
+    <center>
+        <StackPane styleClass="placeholder-pane">
+            <Label fx:id="placeholderLabel"
+                   styleClass="placeholder-label"
+                   text="Timeline — Phase 0 skeleton"/>
+        </StackPane>
+    </center>
+</BorderPane>

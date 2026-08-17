@@ -1,0 +1,328 @@
+# Phase 1 — Domain
+
+## Objective
+Build the complete, framework-free business model for Timeline — types, rules, validation,
+and query/sort semantics — with unit tests covering every rule in ARCHITECTURE.md §8, and no
+UI and no database anywhere in the phase.
+
+## Prerequisites
+- [ ] **Phase 0 is done.** As of writing, the repo contains only `docs/` — there is no `pom.xml`
+      and no `src/`. Phase 1 cannot start until `mvn test` runs. See "Step 0" below.
+- [ ] Reread ARCHITECTURE.md §4 (data model), §7.4 (filter/sort), §7.5 (rich content), §8 (testing).
+
+## In scope
+- `domain/model/`: `Idea`, `IdeaId`, `IdeaStatus`, `Tag`, `Description`
+- `domain/content/`: `ContentBlock` (sealed) + `TextBlock`, `LinkBlock`, `ImageBlock`
+- `domain/command/`: `CreateIdeaCommand`, `UpdateIdeaCommand`
+- `domain/validation/`: `IdeaValidator`, `ValidationResult`, `ValidationError`
+- `domain/query/`: `IdeaQuery`, `SortOrder`
+- `src/test/.../support/`: `FixedClock`, `SequentialIdGenerator`, `IdeaFixtures`
+- Unit tests for every row of the §8 unit-test table that is reachable without a repository
+- An architecture guard test that fails if `domain/` ever imports `javafx.*` or `java.sql.*`
+
+## Explicitly out of scope for this phase
+- Anything in `repository/`, `service/`, `controller/`, `view/` (Phases 2–4)
+- `IdeaService` itself — so the §8 row "`IdeaService` against `InMemoryIdeaRepository`" is
+  **Phase 2's** test, not this phase's
+- `schema.sql`, SQLite, any FXML/CSS
+- Persistence concerns leaking into the model (no `@Column`-ish thinking, no `java.sql`)
+- Pushing filtering into SQL — `IdeaQuery.toPredicate()` is an in-memory `Predicate` in V1 (§7.4)
+
+## Locked decisions relevant to this phase
+- **#2** — `status` (INCOMPLETE / IN_PROGRESS / COMPLETED) is in V1, so `IdeaStatus` and the
+  status dimension of `IdeaQuery` are built now.
+- **#3 / #4** — sort is only Newest/Oldest first; tags are a *filter*, combined with **OR**
+  within the tag dimension and **AND** across dimensions.
+- **#7** — `ContentBlock` has exactly 3 variants. No video type.
+- **§4.1** — `Idea` is an immutable `record`. It never reads the clock; `withUpdatedAt(Instant)`
+  takes the timestamp as an argument because the service owns the `Clock`.
+
+---
+
+## Step 0 — unblock: finish Phase 0 first (do not skip)
+
+Phase 1 is source-only, but you need a build that compiles and runs tests. Minimum bar:
+
+1. `pom.xml` at the repo root: Java 21 (`maven.compiler.release=21`), `javafx-controls`
+   21.x, `org.xerial:sqlite-jdbc`, `junit-jupiter` + `assertj-core` (test scope),
+   `maven-surefire-plugin` recent enough for JUnit 5, `javafx-maven-plugin`.
+   **No `module-info.java`** (§11 Risk 5).
+2. `src/main/java/com/emgi/timeline/App.java` — empty styled window.
+3. `src/main/resources/com/emgi/timeline/css/base.css` and `theme-mono.css`.
+4. `.gitignore` (`target/`, IDE files), `README.md`.
+5. Verify: `mvn -q test` passes (zero tests is fine), `mvn javafx:run` opens the window.
+
+Everything below assumes that is green.
+
+---
+
+## Task checklist — ordered execution steps
+
+Work in the order given. Each step ends with `mvn test` green before you start the next one;
+that is what keeps a compile error in step 6 from being tangled up with a design mistake in
+step 2. Suggested commit granularity: one commit per step.
+
+### Step 1 — value types with no dependencies
+
+Create, in this order (each depends only on what precedes it):
+
+1. `domain/model/IdeaId.java`
+   ```java
+   package com.emgi.timeline.domain.model;
+
+   public record IdeaId(UUID value) {
+       // TODO: compact constructor — reject null value.
+       public static IdeaId newId() { return new IdeaId(UUID.randomUUID()); }
+       // TODO: static fromString(String) — wrap UUID.fromString; decide and document
+       //       whether a malformed string throws IllegalArgumentException (it should).
+       // TODO: override toString() to return value.toString() — this is the exact
+       //       representation the SQLite TEXT primary key round-trips through in Phase 2.
+   }
+   ```
+
+2. `domain/model/IdeaStatus.java` — plain enum `INCOMPLETE, IN_PROGRESS, COMPLETED` with a
+   `displayName()` field ("Incomplete", "In progress", "Completed"). The view must never
+   hardcode these strings, and Phase 5 populates its control from `values()`.
+
+3. `domain/model/Tag.java`
+   ```java
+   public record Tag(String name) {
+       public static final int MAX_LENGTH = 32;
+
+       // TODO: compact constructor — reject null.
+       public static Tag of(String raw) {
+           // TODO: null-check, trim, collapse runs of internal whitespace to a single
+           //       space, lowercase with Locale.ROOT (NOT the default locale — the
+           //       Turkish dotless-i problem is real and would make "I" normalize
+           //       inconsistently across machines).
+           // TODO: reject blank after trimming; reject length > MAX_LENGTH.
+           //       Throw IllegalArgumentException — Tag.of is a factory for
+           //       already-trusted input; user-facing tag input is checked by
+           //       IdeaValidator before it reaches here.
+       }
+   }
+   ```
+   **Tests (`TagTest`)**: `"Java"`, `" java "`, `"Ja  va"` → expected canonical forms;
+   `""` and `"   "` rejected; 32 chars accepted, 33 rejected; two tags differing only by
+   case are `equals` and collapse in a `Set`; a CJK/emoji tag survives normalization.
+
+### Step 2 — content blocks
+
+4. `domain/content/ContentBlock.java` — `public sealed interface ContentBlock permits
+   TextBlock, LinkBlock, ImageBlock {}`
+5. `domain/content/TextBlock.java` — `record TextBlock(String text) implements ContentBlock`,
+   compact constructor rejecting null (empty string is allowed; a user can have an empty
+   paragraph mid-edit).
+6. `domain/content/LinkBlock.java` — `record LinkBlock(URI target, String label)`. Reject null
+   `target`. Decide: a null `label` becomes `target.toString()` — normalize in the constructor
+   so no caller downstream has to null-check.
+7. `domain/content/ImageBlock.java` — `record ImageBlock(URI source, String altText)`. Reject
+   null `source`; null `altText` becomes `""`.
+
+Keep these dumb. Reachability of the URI is not the domain's business (§7.5: a broken
+reference is a *rendering* concern that shows a placeholder — never an exception here).
+
+### Step 3 — Description
+
+8. `domain/model/Description.java`
+   ```java
+   public record Description(List<ContentBlock> blocks) {
+       // TODO: compact constructor — reject null, then blocks = List.copyOf(blocks)
+       //       so the record is genuinely immutable AND rejects null elements for free.
+       public static Description empty() { return new Description(List.of()); }
+       public static Description ofText(String text) { /* TODO single TextBlock */ }
+
+       public String plainTextPreview(int maxChars) {
+           // TODO: concatenate TextBlock text only, in order, separated by a single
+           //       space; skip Link and Image blocks entirely (§8).
+           // TODO: collapse whitespace/newlines so a multi-line block doesn't break
+           //       the single-line list row in Phase 3.
+           // TODO: if the result is longer than maxChars, truncate to maxChars and
+           //       append the ellipsis character "…". Decide explicitly whether
+           //       maxChars counts the ellipsis — document it in a javadoc line, and
+           //       assert that exact choice in the test. Reject maxChars < 1.
+       }
+   }
+   ```
+   **Tests (`DescriptionTest`)**: empty description → `""`; text shorter than the limit is
+   returned unchanged with no ellipsis; text longer is truncated per the documented rule; a
+   description of `[LinkBlock, TextBlock, ImageBlock]` previews only the text; the list
+   returned by `blocks()` is unmodifiable (assert `UnsupportedOperationException` on `add`).
+
+### Step 4 — Idea
+
+9. `domain/model/Idea.java` — per §4.1. Compact constructor null-checks every field and does
+   `tags = Set.copyOf(tags)`. Then the five `with*` copy-methods.
+
+   Two things to get right, because everything downstream leans on them:
+   - `withUpdatedAt(Instant)` **takes** the instant. If you find yourself writing
+     `Instant.now()` inside `Idea`, stop — that is the exact thing that makes Phase 2's
+     service tests flaky.
+   - No `withCreatedAt`. `createdAt` is set once at construction and preserved by every
+     update path (§7.2).
+
+   **Tests (`IdeaTest`)**: each `with*` returns a new instance and leaves the original
+   untouched; `withTags` defensively copies (mutate the passed-in set afterwards, assert the
+   idea is unaffected); the tags set from `tags()` is unmodifiable; null in any component is
+   rejected; two Ideas with equal components are `equals` (record semantics — one assertion
+   is enough, you're documenting intent, not testing the JDK).
+
+### Step 5 — commands
+
+10. `domain/command/CreateIdeaCommand.java` — `record CreateIdeaCommand(String title,
+    Description description, Set<Tag> tags, IdeaStatus status)`. **No id, no timestamps** (§7.1).
+11. `domain/command/UpdateIdeaCommand.java` — same plus `IdeaId id` as the first component.
+
+    These are the one place where "invalid" data legitimately exists — they carry raw form
+    input on its way to the validator. So: **do not null-check aggressively in the compact
+    constructor**, or the validator can never report "title is missing" as a friendly error.
+    Recommended rule: allow a null/blank `title` (the validator's job), but still
+    `List.copyOf`/`Set.copyOf` the collections and default a null `description` to
+    `Description.empty()` and a null `status` to `INCOMPLETE`.
+
+### Step 6 — validation
+
+12. `domain/validation/ValidationError.java` — `record ValidationError(String field, String
+    message)`. `field` is a stable key like `"title"` or `"tags"` so Phase 4 can attach the
+    message to the right control instead of string-matching.
+13. `domain/validation/ValidationResult.java`
+    ```java
+    public record ValidationResult(List<ValidationError> errors) {
+        // TODO: compact constructor — List.copyOf.
+        public static ValidationResult valid() { return new ValidationResult(List.of()); }
+        public boolean isValid()   { return errors.isEmpty(); }
+        public boolean isInvalid() { return !isValid(); }
+        // TODO: errorsFor(String field) helper for the Phase 4 form.
+    }
+    ```
+14. `domain/validation/IdeaValidator.java` — one public method
+    `ValidationResult validate(CreateIdeaCommand)` plus an overload for
+    `UpdateIdeaCommand` (delegate to a shared private method taking the common fields; the
+    only extra rule for update is a non-null `id`).
+
+    Rules to implement — **collect all failures, return them together** (§8 explicitly calls
+    out "multiple errors returned at once"; a validator that returns on the first error makes
+    the Phase 4 form feel broken):
+    - title: not null, not blank (`isBlank()`, **not** `isEmpty()` — the `"   "` edge case in §8)
+    - title: length ≤ `TITLE_MAX_LENGTH`
+    - each `TextBlock.text`: length ≤ `TEXT_BLOCK_MAX_LENGTH`
+    - each `LinkBlock.target` / `ImageBlock.source`: absolute URI with a scheme
+      (`uri.isAbsolute()`); a bare `"foo"` typed into a link field is an error
+    - tags: count ≤ `MAX_TAGS`; each within `Tag.MAX_LENGTH`
+    - status: not null
+
+    **Constants to pick now** (blueprint doesn't specify these; put them as `public static
+    final` on `IdeaValidator` so tests reference the constant, not a magic number, and change
+    them here if you disagree): `TITLE_MAX_LENGTH = 120`, `TEXT_BLOCK_MAX_LENGTH = 10_000`,
+    `MAX_TAGS = 20`.
+
+    **Tests (`IdeaValidatorTest`)**: valid command → `isValid()`; `null`, `""`, `"   "`,
+    `"\t\n"` titles each rejected; title at exactly the limit passes and limit+1 fails
+    (boundary, both sides); a relative URI in a `LinkBlock` fails; a command with a blank
+    title *and* a bad URI returns **two** errors; update with a null id fails.
+
+### Step 7 — query and sort
+
+15. `domain/query/SortOrder.java`
+    ```java
+    public enum SortOrder {
+        NEWEST_FIRST, OLDEST_FIRST;
+
+        public Comparator<Idea> comparator() {
+            // TODO: compare on createdAt (reversed for NEWEST_FIRST), then
+            //       thenComparing on id.value().toString() as a tiebreak so two
+            //       ideas sharing a createdAt instant never jitter between renders.
+            //       The tiebreak direction should NOT flip with the sort order —
+            //       pick ascending-by-id always, and assert that.
+        }
+        // TODO: displayName() — Phase 5 populates its ChoiceBox from values().
+    }
+    ```
+16. `domain/query/IdeaQuery.java` — per §7.4.
+    ```java
+    public record IdeaQuery(Optional<String> titleContains,
+                            Set<Tag> anyOfTags,
+                            Set<IdeaStatus> anyOfStatus,
+                            SortOrder sortOrder) {
+        // TODO: compact constructor — null-check, copy the sets.
+        public static IdeaQuery all() { /* TODO empty, empty, empty, NEWEST_FIRST */ }
+
+        public Predicate<Idea> toPredicate() {
+            // TODO: AND across the three dimensions; empty dimension matches everything.
+            // TODO: title match = case-insensitive SUBSTRING match.
+            //       Lowercase both sides with Locale.ROOT and use String.contains.
+            //       Never compile the input as a regex — a user typing "c++" or "(" must
+            //       not blow up (§8 edge cases).
+            // TODO: tags = OR within the dimension (decision #4) — the idea matches if it
+            //       has ANY of the queried tags. Note this is NOT Set.containsAll.
+            // TODO: status = OR within the dimension, same shape as tags.
+        }
+        // TODO: withTitleContains / withTags / withStatus / withSortOrder copy-methods —
+        //       Phase 5's controls each change one dimension at a time.
+    }
+    ```
+    **Tests (`IdeaQueryTest`, `SortOrderTest`)**: `IdeaQuery.all()` matches every fixture;
+    each dimension alone filters correctly; two dimensions together AND; two tags OR (an
+    idea with only one of them still matches); a search term matching a different case
+    matches; a search term containing `.*` and `(` matches literally and throws nothing;
+    both sort directions; two ideas with an identical `createdAt` sort deterministically and
+    the comparator never returns 0 for distinct ideas (totality — §8).
+
+### Step 8 — test support
+
+Under `src/test/java/com/emgi/timeline/support/`:
+
+17. `FixedClock.java` — thinnest possible: a factory returning
+    `Clock.fixed(instant, ZoneOffset.UTC)` plus a small mutable subclass or an
+    `AtomicReference`-backed `Clock` with `advance(Duration)`, since Phase 2 needs
+    `createdAt != updatedAt` after an update. Plain JDK, no library.
+18. `SequentialIdGenerator.java` — deterministic ids (`000...001`, `000...002`, …).
+    **Ordering note:** the blueprint puts this in Phase 1, but `IdGenerator` lives in
+    `service/` and `service/` is Phase 2. Two clean options — pick one and record it in the
+    retro: (a) create the 3-line `service/IdGenerator.java` interface now (it has zero
+    dependencies and doesn't drag the service layer forward), or (b) defer
+    `SequentialIdGenerator` to Phase 2 and build only `FixedClock` here.
+    **Recommended: (a)** — the interface is the seam, and creating it now costs nothing.
+19. `IdeaFixtures.java` — a builder with sane defaults (`anIdea()`, `.withTitle(...)`,
+    `.withTags(...)`, `.createdAt(...)`, `.build()`). Every test above should build its data
+    through this, not with 7-argument `new Idea(...)` calls. This is the file that decides
+    whether Phases 2–6's tests are pleasant to write.
+
+### Step 9 — the architecture guard
+
+20. `src/test/java/com/emgi/timeline/domain/DomainPurityTest.java` — no new dependency needed:
+    walk `src/main/java/com/emgi/timeline/domain` with `Files.walk`, read each `.java` file,
+    and assert no line starts with `import javafx.` or `import java.sql.`. Fail with the
+    offending file and line in the message.
+
+    Worth the ~20 lines: the "domain imports no framework" rule is the single constraint
+    most likely to be broken by a rushed edit in Phase 4 or 6, and a code review won't catch
+    it as reliably as a red test will.
+
+---
+
+## Files created / modified
+_(fill in as you go)_
+
+## Tests written
+- [ ] `TagTest`, `DescriptionTest`, `IdeaTest`
+- [ ] `IdeaValidatorTest`
+- [ ] `IdeaQueryTest`, `SortOrderTest`
+- [ ] `DomainPurityTest`
+- [ ] Manual smoke check: n/a — this phase has no UI. The check is `mvn test` green and
+      `grep -r "javafx\|java.sql" src/main/java/com/emgi/timeline/domain` returning nothing.
+
+## Definition of done
+Full unit-test coverage of every rule in §8 that doesn't need a repository; **zero framework
+imports in `domain/`**, enforced by a test rather than by discipline. Not "mostly covered" —
+if a §8 row has no assertion behind it, the phase isn't closed.
+
+## Retro (fill in when the phase is closed)
+- Estimated: 3–5 h — Actual: ___
+- What took longer than expected, and why:
+- Any deviation from ARCHITECTURE.md (and whether the blueprint should be updated to match):
+  - _Pre-registered:_ `IdeaValidator`'s three length constants aren't in the blueprint — if
+    you keep 120 / 10 000 / 20, add them to §4 so Phase 4's form hints match.
+  - _Pre-registered:_ the `SequentialIdGenerator` / `IdGenerator` phase-boundary question
+    from Step 8.
+- Anything punted to a later phase that wasn't originally planned that way:
