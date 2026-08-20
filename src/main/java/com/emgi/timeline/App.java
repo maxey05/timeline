@@ -1,5 +1,6 @@
 package com.emgi.timeline;
 
+import com.emgi.timeline.controller.IdeaEditorController;
 import com.emgi.timeline.controller.IdeaListController;
 import com.emgi.timeline.domain.validation.IdeaValidator;
 import com.emgi.timeline.repository.IdeaRepository;
@@ -7,9 +8,9 @@ import com.emgi.timeline.repository.StorageException;
 import com.emgi.timeline.repository.sqlite.SchemaInitializer;
 import com.emgi.timeline.repository.sqlite.SqliteConnectionSource;
 import com.emgi.timeline.repository.sqlite.SqliteIdeaRepository;
-import com.emgi.timeline.seed.SampleDataSeeder;
 import com.emgi.timeline.service.IdeaService;
 import com.emgi.timeline.service.UuidIdGenerator;
+import com.emgi.timeline.view.IdeaEditorDialog;
 import com.emgi.timeline.view.MainView;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.application.Application;
@@ -36,10 +37,13 @@ public class App extends Application
     private static final String CSS_BASE = "/com/emgi/timeline/css/base.css";
     private static final String CSS_THEME = "/com/emgi/timeline/css/theme-mono.css";
 
-    /** Set -Dtimeline.seed=false to launch against an empty database (see the empty-state check). */
-    private static final String SEED_PROPERTY = "timeline.seed";
-
     private SqliteConnectionSource connectionSource;
+
+    /**
+     * Built in {@link #buildListController(Clock)} and kept, because Phase 4's editor dialog needs
+     * a fresh controller per opening and this is the only class that knows how to build one.
+     */
+    private IdeaService service;
 
     @Override
     public void start(Stage stage) throws IOException
@@ -63,7 +67,13 @@ public class App extends Application
             return;
         }
 
-        MainView mainView = new MainView(listController, new IdeaDateFormatter(clock));
+        // The whole of the editor's wiring: the view package never names IdeaService, and App
+        // stays the only class that knows how one is built.
+        IdeaEditorDialog editorDialog =
+            new IdeaEditorDialog(() -> new IdeaEditorController(service));
+
+        MainView mainView =
+            new MainView(listController, new IdeaDateFormatter(clock), editorDialog);
 
         FXMLLoader loader = new FXMLLoader(resource(FXML_MAIN));
         loader.setControllerFactory(type ->
@@ -122,12 +132,7 @@ public class App extends Application
 
         IdeaRepository repository = new SqliteIdeaRepository(connectionSource);
 
-        if(!"false".equalsIgnoreCase(System.getProperty(SEED_PROPERTY)))
-        {
-            new SampleDataSeeder(clock).seedIfEmpty(repository);
-        }
-
-        IdeaService service = new IdeaService(
+        this.service = new IdeaService(
             repository, new IdeaValidator(), new UuidIdGenerator(), clock);
 
         return new IdeaListController(service);
