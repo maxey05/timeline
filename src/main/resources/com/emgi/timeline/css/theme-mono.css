@@ -9,6 +9,13 @@
     -surface-selected: #f0f0f0;
     -separator: #ececec;
 
+    /*
+    * §6.2 forbids color as a hierarchy device, so an error reads as an error through its ⚠
+    * glyph and its position, not through red. The variable exists so a future theme can change
+    * that in one line without touching base.css.
+    */
+    -text-error: #1a1a1a;
+
     -fx-background-color: -surface;
     -fx-text-fill: -text-primary;
 }
@@ -91,6 +98,91 @@
 }
 
 .empty-state-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+/* ---- editor dialog ---- */
+
+.editor-pane
+{
+    -fx-background-color: -surface;
+}
+
+.field-label
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.text-input
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-text-fill: -text-primary;
+}
+
+.text-input:focused
+{
+    -fx-border-color: -text-secondary;
+}
+
+/*
+* TextArea's interior is a separate region: styling .text-input alone leaves the box right and
+* the inside Modena-default. (Same class of trap as .virtual-flow vs .viewport in Phase 3.)
+*/
+.text-input .content
+{
+    -fx-background-color: -surface;
+}
+
+.error-label
+{
+    -fx-text-fill: -text-error;
+}
+
+.tag-remove
+{
+    -fx-background-color: transparent;
+    -fx-text-fill: -text-secondary;
+}
+
+.tag-remove:hover
+{
+    -fx-text-fill: -text-primary;
+}
+
+.status-option
+{
+    -fx-text-fill: -text-primary;
+}
+
+.secondary-button
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+    -fx-text-fill: -text-secondary;
+}
+
+.secondary-button:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.context-menu
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-border-width: 1px;
+}
+
+.context-menu .menu-item:focused
+{
+    -fx-background-color: -surface-hover;
+}
+
+.context-menu .menu-item .label
 {
     -fx-text-fill: -text-primary;
 }
