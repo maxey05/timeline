@@ -197,3 +197,87 @@
     -fx-background-radius: 3px;
     -fx-cursor: hand;
 }
+
+/* ---- filter bar ---- */
+
+.filter-bar
+{
+    -fx-padding: 10px 18px 12px 18px;
+    -fx-spacing: 8px;
+}
+
+.toolbar
+{
+    -fx-spacing: 10px;
+}
+
+.toolbar-label
+{
+    -fx-font-size: 12px;
+    -fx-font-weight: 500;
+    -fx-min-width: 34px;
+    -fx-padding: 2px 0 0 0;
+}
+
+.search-field
+{
+    -fx-font-size: 13px;
+    -fx-padding: 5px 8px;
+    -fx-background-radius: 3px;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+}
+
+.sort-choice
+{
+    -fx-font-size: 12px;
+    -fx-padding: 3px 6px;
+    -fx-background-radius: 3px;
+    -fx-background-insets: 0;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+}
+
+.tag-filter-row
+{
+    -fx-spacing: 10px;
+}
+
+.tag-filter-pane
+{
+    -fx-hgap: 6px;
+    -fx-vgap: 4px;
+}
+
+/*
+* Deliberately near-identical to .tag-chip in the list cell — a filter chip and a tag on a row must
+* read as the same object. It differs in being a control (hand cursor, hover) and in two extra
+* pixels of horizontal padding, which a ToggleButton needs to look the same size as a Label.
+*
+* -fx-background-insets: 0 is not optional: Modena paints .toggle-button as four stacked
+* backgrounds with staggered insets to fake a bevel, and flattening them is what removes the
+* shadow line no color rule can reach.
+*/
+.filter-chip
+{
+    -fx-font-size: 11px;
+    -fx-padding: 1px 9px;
+    -fx-background-radius: 9px;
+    -fx-background-insets: 0;
+    -fx-border-radius: 9px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+}
+
+/* ---- no-matches state ---- */
+
+.no-matches
+{
+    -fx-spacing: 12px;
+    -fx-padding: 48px;
+}
+
+.no-matches-title
+{
+    -fx-font-size: 15px;
+}

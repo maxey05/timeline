@@ -186,3 +186,75 @@
 {
     -fx-text-fill: -text-primary;
 }
+
+/* ---- filter bar ---- */
+
+.filter-bar
+{
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent -separator transparent;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.toolbar-label
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.search-field
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-text-fill: -text-primary;
+    -fx-prompt-text-fill: -text-secondary;
+}
+
+.search-field:focused
+{
+    -fx-border-color: -text-secondary;
+}
+
+.sort-choice
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.sort-choice .label
+{
+    -fx-text-fill: -text-primary;
+}
+
+/* The popup is a ContextMenu and already picks up the rules above; only the arrow is left. */
+.sort-choice .arrow
+{
+    -fx-background-color: -text-secondary;
+}
+
+/*
+* §6.2: hierarchy by weight and fill, never by hue. A selected chip is the same shape in a darker
+* gray with a darker border — the same move the list cell makes for :selected.
+*/
+.filter-chip
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-text-fill: -text-secondary;
+}
+
+.filter-chip:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.filter-chip:selected
+{
+    -fx-background-color: -surface-selected;
+    -fx-border-color: -text-secondary;
+    -fx-text-fill: -text-primary;
+}
+
+.no-matches-title
+{
+    -fx-text-fill: -text-primary;
+}
