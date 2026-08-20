@@ -5,8 +5,10 @@ import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.geometry.Pos;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * One row of the idea list (ARCHITECTURE.md §6.2). Renders; decides nothing.
@@ -25,6 +28,11 @@ import java.util.Objects;
  * <p>{@code ListCell} instances are recycled — the object that draws row 4 draws row 40 after a
  * scroll — so every node is built once in the constructor and {@link #updateItem} only ever sets
  * values on nodes that already exist.
+ *
+ * <p>Phase 4 added the Edit/Delete context menu. It lives on the cell rather than on the
+ * {@code ListView} because a right-click does not move JavaFX's selection: a menu owned by the
+ * cell acts on {@link #getItem()} and needs no selection at all. The cell still decides nothing —
+ * it forwards the item to callbacks the view supplied.
  */
 public final class IdeaListCell extends ListCell<Idea>
 {
@@ -32,6 +40,7 @@ public final class IdeaListCell extends ListCell<Idea>
     public static final int PREVIEW_CHARS = 120;
 
     private final IdeaDateFormatter dateFormatter;
+    private final ContextMenu contextMenu;
 
     private final VBox root = new VBox();
     private final HBox topRow = new HBox();
@@ -42,9 +51,21 @@ public final class IdeaListCell extends ListCell<Idea>
     private final FlowPane tagPane = new FlowPane();
     private final Label statusLabel = new Label();
 
-    public IdeaListCell(IdeaDateFormatter dateFormatter)
+    public IdeaListCell(IdeaDateFormatter dateFormatter,
+                        Consumer<Idea> onEdit,
+                        Consumer<Idea> onDelete)
     {
         this.dateFormatter = Objects.requireNonNull(dateFormatter, "dateFormatter");
+        Objects.requireNonNull(onEdit, "onEdit");
+        Objects.requireNonNull(onDelete, "onDelete");
+
+        MenuItem edit = new MenuItem("Edit…");
+        edit.setOnAction(event -> onEdit.accept(getItem()));
+
+        MenuItem delete = new MenuItem("Delete…");
+        delete.setOnAction(event -> onDelete.accept(getItem()));
+
+        this.contextMenu = new ContextMenu(edit, delete);
 
         getStyleClass().add("idea-cell");
         titleLabel.getStyleClass().add("idea-title");
@@ -88,6 +109,8 @@ public final class IdeaListCell extends ListCell<Idea>
             // Skipping this leaves ghost rows below the last real one.
             setGraphic(null);
             setText(null);
+            // An empty row below the last idea has nothing to edit or delete.
+            setContextMenu(null);
             return;
         }
 
@@ -110,6 +133,7 @@ public final class IdeaListCell extends ListCell<Idea>
         // Both. Leaving the text set draws the record's toString() behind the layout.
         setGraphic(root);
         setText(null);
+        setContextMenu(contextMenu);
     }
 
     /**
