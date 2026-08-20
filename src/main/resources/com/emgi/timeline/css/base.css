@@ -22,3 +22,103 @@
 {
     -fx-font-size: 15px;
 }
+
+/* ---- header ---- */
+
+.app-header
+{
+    -fx-padding: 14px 18px;
+    -fx-spacing: 12px;
+}
+
+.app-title
+{
+    -fx-font-size: 16px;
+    -fx-font-weight: 600;
+}
+
+.primary-button
+{
+    -fx-padding: 6px 14px;
+    -fx-font-size: 13px;
+    -fx-background-radius: 3px;
+    -fx-cursor: hand;
+}
+
+/* ---- list ---- */
+
+.list-container
+{
+    -fx-padding: 0;
+}
+
+.idea-list
+{
+    -fx-padding: 0;
+}
+
+.idea-cell
+{
+    -fx-padding: 14px 18px;
+}
+
+.idea-cell-root
+{
+    -fx-spacing: 5px;
+}
+
+.idea-title
+{
+    -fx-font-size: 15px;
+    -fx-font-weight: 500;
+}
+
+.idea-date
+{
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 12px;
+}
+
+.idea-preview
+{
+    -fx-font-size: 13px;
+}
+
+.idea-tags
+{
+    -fx-hgap: 6px;
+    -fx-vgap: 4px;
+}
+
+.tag-chip
+{
+    -fx-font-size: 11px;
+    -fx-padding: 1px 7px;
+    -fx-background-radius: 9px;
+    -fx-border-radius: 9px;
+    -fx-border-width: 1px;
+}
+
+.idea-status
+{
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 12px;
+}
+
+/* ---- empty state ---- */
+
+.empty-state
+{
+    -fx-spacing: 6px;
+    -fx-padding: 48px;
+}
+
+.empty-state-title
+{
+    -fx-font-size: 15px;
+}
+
+.empty-state-hint
+{
+    -fx-font-size: 13px;
+}

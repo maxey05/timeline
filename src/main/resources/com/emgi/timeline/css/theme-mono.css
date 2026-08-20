@@ -17,3 +17,80 @@
 {
     -fx-text-fill: -text-secondary;
 }
+
+.app-header
+{
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent -separator transparent;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.app-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.primary-button
+{
+    -fx-background-color: -surface-selected;
+    -fx-text-fill: -text-primary;
+}
+
+.primary-button:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.primary-button:disabled
+{
+    -fx-opacity: 0.45;
+}
+
+.list-container,
+.idea-list,
+.idea-list .virtual-flow
+{
+    -fx-background-color: -surface;
+}
+
+.idea-list .list-cell
+{
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent -separator transparent;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.idea-list .list-cell:filled:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.idea-list .list-cell:filled:selected
+{
+    -fx-background-color: -surface-selected;
+}
+
+.idea-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.idea-date,
+.idea-preview,
+.idea-status,
+.empty-state-hint
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.tag-chip
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+    -fx-text-fill: -text-secondary;
+}
+
+.empty-state-title
+{
+    -fx-text-fill: -text-primary;
+}
