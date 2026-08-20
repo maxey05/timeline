@@ -1,0 +1,81 @@
+package com.emgi.timeline.view.format;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Objects;
+
+/**
+ * Renders an {@link Instant} the way a human reads a list: relative while it is recent, absolute
+ * once it is not (ARCHITECTURE.md §6.2).
+ *
+ * <p>Presentation, not domain (§5): the domain must never format a date, and this class must never
+ * make a decision about what an idea <em>is</em>. It lives outside the cell so the rule can be
+ * unit-tested without booting the toolkit.
+ */
+public final class IdeaDateFormatter
+{
+    /** Older than this and the date is shown absolutely instead of as "N days ago". */
+    public static final Duration RELATIVE_LIMIT = Duration.ofDays(7);
+
+    private static final String JUST_NOW = "Just now";
+
+    // Locale.ENGLISH is deliberate: the default locale would change the month abbreviation from
+    // machine to machine, and "d" rather than "dd" so the 3rd renders as "Aug 3", not "Aug 03".
+    private static final DateTimeFormatter SAME_YEAR =
+        DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
+    private static final DateTimeFormatter OTHER_YEAR =
+        DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
+
+    private final Clock clock;
+
+    public IdeaDateFormatter(Clock clock)
+    {
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    public String format(Instant instant)
+    {
+        Objects.requireNonNull(instant, "instant");
+
+        Instant now = clock.instant();
+        Duration elapsed = Duration.between(instant, now);
+
+        // A timestamp in the future means clock skew, not a real event. "Just now" is a harmless
+        // reading of it; "-3 days ago" is not.
+        if(elapsed.isNegative() || elapsed.toMinutes() < 1)
+        {
+            return JUST_NOW;
+        }
+
+        if(elapsed.toHours() < 1)
+        {
+            return plural(elapsed.toMinutes(), "minute");
+        }
+
+        if(elapsed.toDays() < 1)
+        {
+            return plural(elapsed.toHours(), "hour");
+        }
+
+        if(elapsed.compareTo(RELATIVE_LIMIT) < 0)
+        {
+            return plural(elapsed.toDays(), "day");
+        }
+
+        ZonedDateTime zoned = instant.atZone(clock.getZone());
+        ZonedDateTime nowZoned = now.atZone(clock.getZone());
+
+        return zoned.getYear() == nowZoned.getYear()
+            ? SAME_YEAR.format(zoned)
+            : OTHER_YEAR.format(zoned);
+    }
+
+    private static String plural(long amount, String unit)
+    {
+        return amount + " " + unit + (amount == 1 ? "" : "s") + " ago";
+    }
+}
