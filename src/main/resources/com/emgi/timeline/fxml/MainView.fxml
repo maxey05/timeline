@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ChoiceBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
@@ -15,11 +18,29 @@
             styleClass="root-pane">
 
     <top>
-        <HBox styleClass="app-header" alignment="CENTER_LEFT">
-            <Label styleClass="app-title" text="Timeline"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
-        </HBox>
+        <VBox>
+            <HBox styleClass="app-header" alignment="CENTER_LEFT">
+                <Label styleClass="app-title" text="Timeline"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
+            </HBox>
+
+            <VBox styleClass="filter-bar">
+                <HBox styleClass="toolbar" alignment="CENTER_LEFT">
+                    <TextField fx:id="searchField"
+                               styleClass="search-field"
+                               promptText="Search titles…"
+                               HBox.hgrow="ALWAYS"/>
+                    <Label styleClass="toolbar-label" text="Sort"/>
+                    <ChoiceBox fx:id="sortChoice" styleClass="sort-choice"/>
+                </HBox>
+
+                <HBox fx:id="tagFilterRow" styleClass="tag-filter-row" alignment="TOP_LEFT">
+                    <Label styleClass="toolbar-label" text="Tags"/>
+                    <FlowPane fx:id="tagFilterPane" styleClass="tag-filter-pane" HBox.hgrow="ALWAYS"/>
+                </HBox>
+            </VBox>
+        </VBox>
     </top>
 
     <center>
@@ -29,6 +50,11 @@
             <VBox fx:id="emptyState" styleClass="empty-state" alignment="CENTER">
                 <Label styleClass="empty-state-title" text="No ideas yet"/>
                 <Label styleClass="empty-state-hint" text="Your ideas will appear here."/>
+            </VBox>
+
+            <VBox fx:id="noMatchesState" styleClass="no-matches" alignment="CENTER">
+                <Label styleClass="no-matches-title" text="No ideas match your filters"/>
+                <Button fx:id="clearFiltersButton" styleClass="secondary-button" text="Clear filters"/>
             </VBox>
         </StackPane>
     </center>
