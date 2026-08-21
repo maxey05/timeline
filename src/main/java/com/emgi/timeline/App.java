@@ -10,8 +10,10 @@ import com.emgi.timeline.repository.sqlite.SqliteConnectionSource;
 import com.emgi.timeline.repository.sqlite.SqliteIdeaRepository;
 import com.emgi.timeline.service.IdeaService;
 import com.emgi.timeline.service.UuidIdGenerator;
+import com.emgi.timeline.settings.PreferencesWindowStateStore;
 import com.emgi.timeline.view.IdeaEditorDialog;
 import com.emgi.timeline.view.MainView;
+import com.emgi.timeline.view.WindowGeometry;
 import com.emgi.timeline.view.content.BlockRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.application.Application;
@@ -88,6 +90,9 @@ public class App extends Application
         stage.setMinWidth(820);
         stage.setMinHeight(480);
         stage.setScene(scene);
+
+        new WindowGeometry(PreferencesWindowStateStore.atUserNode()).install(stage);
+
         stage.show();
     }
 
