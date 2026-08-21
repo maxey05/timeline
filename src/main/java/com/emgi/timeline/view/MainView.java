@@ -7,11 +7,13 @@ import com.emgi.timeline.domain.query.SortOrder;
 import com.emgi.timeline.view.cell.IdeaListCell;
 import com.emgi.timeline.view.content.BlockRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
@@ -23,6 +25,11 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -155,6 +162,7 @@ public class MainView
 
         buildFilterControls();
         buildDetailPane(noIdeasAtAll);
+        installKeyboard();
 
         ideaListView.setOnMouseClicked(event ->
         {
@@ -167,6 +175,79 @@ public class MainView
                 }
             }
         });
+    }
+
+    private void installKeyboard()
+    {
+        newIdeaButton.setTooltip(new Tooltip("New idea  (Ctrl+N)"));
+        searchField.setTooltip(new Tooltip("Search titles  (Ctrl+F)"));
+        detailEditButton.setTooltip(new Tooltip("Edit this idea  (Enter, from the list)"));
+
+        ideaListView.setOnKeyPressed(this::onListKey);
+        searchField.setOnKeyPressed(this::onSearchKey);
+
+        ideaListView.sceneProperty().addListener((observable, previous, current) ->
+        {
+            if(current != null)
+            {
+                installAccelerators(current);
+            }
+        });
+    }
+
+    private void installAccelerators(Scene scene)
+    {
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
+            this::createIdea);
+
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN),
+            this::focusSearch);
+
+        Platform.runLater(ideaListView::requestFocus);
+    }
+
+    private void onListKey(KeyEvent event)
+    {
+        Idea selected = ideaListView.getSelectionModel().getSelectedItem();
+
+        if(selected == null)
+        {
+            return;
+        }
+
+        switch(event.getCode())
+        {
+            case ENTER ->
+            {
+                editIdea(selected);
+                event.consume();
+            }
+            case DELETE ->
+            {
+                deleteIdea(selected);
+                event.consume();
+            }
+            default ->
+            {
+            }
+        }
+    }
+
+    private void onSearchKey(KeyEvent event)
+    {
+        if(event.getCode() == KeyCode.ESCAPE && !searchField.getText().isEmpty())
+        {
+            searchField.clear();
+            event.consume();
+        }
+    }
+
+    private void focusSearch()
+    {
+        searchField.requestFocus();
+        searchField.selectAll();
     }
 
     private void buildFilterControls()
@@ -317,6 +398,8 @@ public class MainView
                 ideaListView.scrollTo(idea);
             }
         });
+
+        ideaListView.requestFocus();
     }
 
     private void editIdea(Idea idea)
@@ -334,6 +417,8 @@ public class MainView
         {
             controller.load();
         }
+
+        ideaListView.requestFocus();
     }
 
     private void deleteIdea(Idea idea)
@@ -360,6 +445,8 @@ public class MainView
         {
             controller.delete(idea);
         }
+
+        ideaListView.requestFocus();
     }
 
     private Window window()
