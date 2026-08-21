@@ -318,3 +318,56 @@
     -fx-border-color: -separator;
     -fx-background-color: -surface-hover;
 }
+
+
+
+.filter-chip:focused,
+.sort-choice:focused
+{
+    -fx-border-color: -text-primary;
+}
+
+.filter-chip:focused
+{
+    -fx-text-fill: -text-primary;
+}
+
+.primary-button:focused,
+.secondary-button:focused
+{
+    -fx-background-color: -text-primary, -surface-selected;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px, 2px;
+}
+
+.block-button:focused
+{
+    -fx-background-color: -text-primary, -surface;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px, 2px;
+    -fx-text-fill: -text-primary;
+}
+
+.tag-remove:focused
+{
+    -fx-text-fill: -text-primary;
+    -fx-underline: true;
+}
+
+.detail-scroll:focused
+{
+    -fx-background-color: -text-primary, -surface;
+    -fx-background-insets: 0, 1;
+}
+
+.idea-list:focused .list-cell:filled:selected
+{
+    -fx-background-color: -text-primary, -surface-selected;
+    -fx-background-insets: 0, 0 0 0 3px;
+}
+
+.status-option:focused
+{
+    -fx-text-fill: -text-primary;
+    -fx-underline: true;
+}
