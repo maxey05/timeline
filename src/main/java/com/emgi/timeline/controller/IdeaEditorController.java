@@ -3,6 +3,8 @@ package com.emgi.timeline.controller;
 import com.emgi.timeline.domain.command.CreateIdeaCommand;
 import com.emgi.timeline.domain.command.UpdateIdeaCommand;
 import com.emgi.timeline.domain.content.ContentBlock;
+import com.emgi.timeline.domain.content.ImageBlock;
+import com.emgi.timeline.domain.content.LinkBlock;
 import com.emgi.timeline.domain.content.TextBlock;
 import com.emgi.timeline.domain.model.Description;
 import com.emgi.timeline.domain.model.Idea;
@@ -22,6 +24,8 @@ import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -30,42 +34,23 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * The MVC controller behind the editor dialog (ARCHITECTURE.md §7.1–7.2).
- *
- * <p>Holds the <em>mutable</em> form model that §7.2 calls for, as bindable properties, so the
- * stored {@link Idea} is never touched while the user types. Cancel is therefore free: throw the
- * controller away and nothing happened.
- *
- * <p>One controller instance per opened dialog. It is not reusable across dialogs and does not try
- * to be — {@code IdeaEditorDialog} constructs a fresh one each time.
- *
- * <p><strong>Phase 4 constraint:</strong> a description is one text block. {@code TextArea} in, one
- * {@link TextBlock} out. Phase 6 replaces {@link #descriptionFromForm()} and {@link #textOf} with
- * the block editor; nothing else here changes.
- */
 public final class IdeaEditorController
 {
-    /** What {@link #save()} did, in terms the view can act on without knowing the service. */
     public enum SaveResult
     {
-        /** Persisted. {@link #savedIdea()} holds the result; close the dialog. */
         SAVED,
 
-        /** Rejected. The error properties are populated; keep the dialog open. */
         INVALID,
 
-        /** The idea being edited no longer exists in storage. Tell the user; close; refresh. */
         MISSING
     }
-
-    /** Separator when several text blocks are flattened into the single Phase 4 text area. */
-    private static final String BLOCK_SEPARATOR = "\n\n";
 
     private final IdeaService service;
 
     private final StringProperty title = new SimpleStringProperty("");
-    private final StringProperty descriptionText = new SimpleStringProperty("");
+
+    private final ObservableList<BlockDraft> blocks = FXCollections.observableArrayList();
+
     private final ObjectProperty<IdeaStatus> status =
             new SimpleObjectProperty<>(IdeaStatus.INCOMPLETE);
     private final ObservableList<Tag> tags = FXCollections.observableArrayList();
@@ -74,7 +59,6 @@ public final class IdeaEditorController
     private final ReadOnlyStringWrapper descriptionError = new ReadOnlyStringWrapper("");
     private final ReadOnlyStringWrapper tagsError = new ReadOnlyStringWrapper("");
 
-    /** Null in create mode; the id being edited otherwise. This field <em>is</em> the mode. */
     private IdeaId editingId;
 
     private Idea savedIdea;
@@ -86,16 +70,81 @@ public final class IdeaEditorController
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    // ---- form model ----------------------------------------------------------------
-
     public StringProperty titleProperty()
     {
         return title;
     }
 
-    public StringProperty descriptionTextProperty()
+    public ObservableList<BlockDraft> blocks()
     {
-        return descriptionText;
+        return blocks;
+    }
+
+    public BlockDraft addBlock(BlockKind kind)
+    {
+        Objects.requireNonNull(kind, "kind");
+
+        BlockDraft draft = BlockDraft.ofKind(kind);
+        blocks.add(draft);
+        return draft;
+    }
+
+    public void removeBlock(BlockDraft draft)
+    {
+        Objects.requireNonNull(draft, "draft");
+
+        int index = indexOfBlock(draft);
+        if(index >= 0)
+        {
+            blocks.remove(index);
+        }
+    }
+
+    public void moveBlockUp(BlockDraft draft)
+    {
+        Objects.requireNonNull(draft, "draft");
+
+        int index = indexOfBlock(draft);
+        if(index <= 0)
+        {
+            return;
+        }
+
+        swapBlocks(index, index - 1);
+    }
+
+    public void moveBlockDown(BlockDraft draft)
+    {
+        Objects.requireNonNull(draft, "draft");
+
+        int index = indexOfBlock(draft);
+        if(index < 0 || index >= blocks.size() - 1)
+        {
+            return;
+        }
+
+        swapBlocks(index, index + 1);
+    }
+
+    private int indexOfBlock(BlockDraft draft)
+    {
+        for(int i = 0; i < blocks.size(); i++)
+        {
+            if(blocks.get(i) == draft)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void swapBlocks(int from, int to)
+    {
+        BlockDraft moving = blocks.get(from);
+        BlockDraft displaced = blocks.get(to);
+        blocks.set(to, moving);
+        blocks.set(from, displaced);
     }
 
     public ObjectProperty<IdeaStatus> statusProperty()
@@ -103,7 +152,6 @@ public final class IdeaEditorController
         return status;
     }
 
-    /** Live, order-preserving view of the chips. The view rebuilds on change; it never edits. */
     public ObservableList<Tag> tags()
     {
         return tags;
@@ -129,26 +177,16 @@ public final class IdeaEditorController
         return editingId != null;
     }
 
-    /** The persisted idea, once {@link #save()} has returned {@code SAVED}. Empty until then. */
     public Optional<Idea> savedIdea()
     {
         return Optional.ofNullable(savedIdea);
     }
 
-    /**
-     * Whether the last {@link #save()} found the edited idea gone from storage.
-     *
-     * <p>This is what tells the caller "the row on screen is a ghost, reload" apart from the far
-     * commoner "the user pressed Cancel", without making it reload after every cancel.
-     */
     public boolean targetMissing()
     {
         return targetMissing;
     }
 
-    // ---- opening -------------------------------------------------------------------
-
-    /** Empty form: no title, no tags, no description, status Incomplete. */
     public void beginCreate()
     {
         editingId = null;
@@ -156,17 +194,13 @@ public final class IdeaEditorController
         targetMissing = false;
 
         title.set("");
-        descriptionText.set("");
+        blocks.setAll(BlockDraft.ofKind(BlockKind.TEXT));
         status.set(IdeaStatus.INCOMPLETE);
         tags.clear();
 
         clearErrors();
     }
 
-    /**
-     * Loads an existing idea into the form. The argument is never mutated and never stored — only
-     * its id is kept, so the save path re-reads storage rather than trusting a stale copy.
-     */
     public void beginEdit(Idea idea)
     {
         Objects.requireNonNull(idea, "idea");
@@ -176,11 +210,9 @@ public final class IdeaEditorController
         targetMissing = false;
 
         title.set(idea.title());
-        descriptionText.set(textOf(idea.description()));
+        blocks.setAll(draftsFor(idea.description()));
         status.set(idea.status());
 
-        // Sorted, because Set iteration order is arbitrary and the chips would otherwise appear
-        // in a different order each time the same idea is opened (same reason IdeaListCell sorts).
         List<Tag> ordered = new ArrayList<>(idea.tags());
         ordered.sort(Comparator.comparing(Tag::name));
         tags.setAll(ordered);
@@ -188,26 +220,10 @@ public final class IdeaEditorController
         clearErrors();
     }
 
-    // ---- tag entry -----------------------------------------------------------------
-
-    /**
-     * Parses one line of raw tag text the user typed and adds it.
-     *
-     * <p>This is the form-input concern {@code IdeaValidator}'s javadoc hands to Phase 4: a
-     * {@link Tag} cannot exist in an invalid state, so {@code Tag.of} throws on blank or
-     * over-length input, and an exception out of a keystroke is not an acceptable UI. It becomes a
-     * message under the tag field instead.
-     *
-     * <p>Adding a tag the form already holds is a silent no-op, not an error — {@code "Java"} and
-     * {@code " java "} canonicalize to the same tag, and telling the user off for it would be noise.
-     *
-     * @return true if the field should be cleared (accepted, or already present)
-     */
     public boolean addTag(String raw)
     {
         if(raw == null || raw.isBlank())
         {
-            // The user pressed Enter on an empty field. Not a mistake worth a sentence.
             return false;
         }
 
@@ -218,9 +234,6 @@ public final class IdeaEditorController
         }
         catch(IllegalArgumentException e)
         {
-            // Tag's own messages are already user-readable ("Tag name must be at most 32
-            // characters, was 40"); inventing a second wording here would be one more place for
-            // the limit to drift.
             tagsError.set(e.getMessage() + ".");
             return false;
         }
@@ -242,27 +255,25 @@ public final class IdeaEditorController
         tagsError.set("");
     }
 
-    // ---- saving --------------------------------------------------------------------
-
-    /**
-     * Validates and persists, then reports which of the three things happened.
-     *
-     * <p>The service does the validating (§7.1) — this method never inspects the title itself. Its
-     * job is to build the right command, and to route {@code SaveOutcome} back to the form.
-     */
     public SaveResult save()
     {
         clearErrors();
         targetMissing = false;
 
+        DescriptionAttempt attempt = readDescription();
+
+        if(!attempt.errors().isEmpty())
+        {
+            descriptionError.set(String.join(" ", attempt.errors()));
+            return SaveResult.INVALID;
+        }
+
         SaveOutcome outcome = isEditing()
             ? service.update(new UpdateIdeaCommand(
-                editingId, title.get(), descriptionFromForm(), tagSet(), status.get()))
+                editingId, title.get(), attempt.description(), tagSet(), status.get()))
             : service.create(new CreateIdeaCommand(
-                title.get(), descriptionFromForm(), tagSet(), status.get()));
+                title.get(), attempt.description(), tagSet(), status.get()));
 
-        // Exhaustive over the sealed SaveOutcome — no default branch, for the same reason §7.5's
-        // BlockRenderer has none.
         return switch(outcome)
         {
             case SaveOutcome.Saved saved ->
@@ -283,12 +294,6 @@ public final class IdeaEditorController
         };
     }
 
-    /**
-     * Routes each error to the control it belongs to, by field key.
-     *
-     * <p>Matching on {@code ValidationError.field()} and never on message text is what lets the
-     * wording change without silently unhooking a message from its field.
-     */
     private void applyErrors(ValidationResult validation)
     {
         titleError.set(joined(validation, IdeaValidator.FIELD_TITLE));
@@ -298,8 +303,6 @@ public final class IdeaEditorController
 
     private static String joined(ValidationResult validation, String field)
     {
-        // Empty string when the field is fine — that is what the view's "is it non-empty" binding
-        // keys off, so there is no separate "has an error" flag to keep in step.
         return String.join(" ", validation.messagesFor(field));
     }
 
@@ -315,44 +318,81 @@ public final class IdeaEditorController
         return new LinkedHashSet<>(tags);
     }
 
-    /** Blank text area to an empty description, not a description holding one empty block. */
-    private Description descriptionFromForm()
+    private record DescriptionAttempt(Description description, List<String> errors) { }
+
+    private static List<BlockDraft> draftsFor(Description description)
     {
-        String text = descriptionText.get();
-
-        if(text == null || text.isBlank())
-        {
-            return Description.empty();
-        }
-
-        return Description.ofText(text.strip());
-    }
-
-    /**
-     * Flattens a stored description into the one text area Phase 4 has.
-     *
-     * <p>Text blocks are joined with a blank line; link and image blocks are skipped, because this
-     * phase has no way to render or edit them. Nothing in the app can create such a block before
-     * Phase 6, so in practice this sees zero or one block. The skip is written down anyway so that
-     * when Phase 6 arrives, the lossy path is a known thing being replaced rather than a surprise.
-     */
-    private static String textOf(Description description)
-    {
-        StringBuilder joined = new StringBuilder();
+        List<BlockDraft> drafts = new ArrayList<>();
 
         for(ContentBlock block : description.blocks())
         {
-            if(block instanceof TextBlock text)
+            drafts.add(BlockDraft.from(block));
+        }
+
+        if(drafts.isEmpty())
+        {
+            drafts.add(BlockDraft.ofKind(BlockKind.TEXT));
+        }
+
+        return drafts;
+    }
+
+    private DescriptionAttempt readDescription()
+    {
+        blocks.removeIf(BlockDraft::isBlank);
+
+        List<ContentBlock> converted = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for(int i = 0; i < blocks.size(); i++)
+        {
+            BlockDraft draft = blocks.get(i);
+            int position = i + 1;
+
+            if(draft.isMissingUri())
             {
-                if(!joined.isEmpty())
+                errors.add("Block " + position + ": " + draft.kind().addressWord()
+                    + " address is required.");
+                continue;
+            }
+
+            switch(draft.kind())
+            {
+                case TEXT -> converted.add(new TextBlock(draft.textProperty().get().strip()));
+
+                case LINK ->
                 {
-                    joined.append(BLOCK_SEPARATOR);
+                    URI target = parse(draft.uriProperty().get(), position, errors);
+                    if(target != null)
+                    {
+                        converted.add(new LinkBlock(target, draft.labelProperty().get()));
+                    }
                 }
 
-                joined.append(text.text());
+                case IMAGE ->
+                {
+                    URI source = parse(draft.uriProperty().get(), position, errors);
+                    if(source != null)
+                    {
+                        converted.add(new ImageBlock(source, draft.altTextProperty().get()));
+                    }
+                }
             }
         }
 
-        return joined.toString();
+        return new DescriptionAttempt(new Description(converted), errors);
+    }
+
+    private static URI parse(String raw, int position, List<String> errors)
+    {
+        try
+        {
+            return new URI(raw.strip());
+        }
+        catch(URISyntaxException e)
+        {
+            errors.add("Block " + position + ": '" + raw.strip() + "' is not a valid address.");
+            return null;
+        }
     }
 }
