@@ -8,23 +8,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Objects;
 
-/**
- * Renders an {@link Instant} the way a human reads a list: relative while it is recent, absolute
- * once it is not (ARCHITECTURE.md §6.2).
- *
- * <p>Presentation, not domain (§5): the domain must never format a date, and this class must never
- * make a decision about what an idea <em>is</em>. It lives outside the cell so the rule can be
- * unit-tested without booting the toolkit.
- */
 public final class IdeaDateFormatter
 {
-    /** Older than this and the date is shown absolutely instead of as "N days ago". */
     public static final Duration RELATIVE_LIMIT = Duration.ofDays(7);
 
     private static final String JUST_NOW = "Just now";
 
-    // Locale.ENGLISH is deliberate: the default locale would change the month abbreviation from
-    // machine to machine, and "d" rather than "dd" so the 3rd renders as "Aug 3", not "Aug 03".
     private static final DateTimeFormatter SAME_YEAR =
         DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
     private static final DateTimeFormatter OTHER_YEAR =
@@ -44,8 +33,6 @@ public final class IdeaDateFormatter
         Instant now = clock.instant();
         Duration elapsed = Duration.between(instant, now);
 
-        // A timestamp in the future means clock skew, not a real event. "Just now" is a harmless
-        // reading of it; "-3 days ago" is not.
         if(elapsed.isNegative() || elapsed.toMinutes() < 1)
         {
             return JUST_NOW;

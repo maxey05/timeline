@@ -12,6 +12,7 @@ import com.emgi.timeline.service.IdeaService;
 import com.emgi.timeline.service.UuidIdGenerator;
 import com.emgi.timeline.view.IdeaEditorDialog;
 import com.emgi.timeline.view.MainView;
+import com.emgi.timeline.view.content.BlockRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -27,10 +28,6 @@ import java.net.URL;
 import java.time.Clock;
 import java.util.Objects;
 
-/**
- * Entry point and composition root (ARCHITECTURE.md §3). This is the only class that names
- * {@code SqliteIdeaRepository}; everything else depends on the {@code IdeaRepository} interface.
- */
 public class App extends Application
 {
     private static final String FXML_MAIN = "/com/emgi/timeline/fxml/MainView.fxml";
@@ -39,18 +36,11 @@ public class App extends Application
 
     private SqliteConnectionSource connectionSource;
 
-    /**
-     * Built in {@link #buildListController(Clock)} and kept, because Phase 4's editor dialog needs
-     * a fresh controller per opening and this is the only class that knows how to build one.
-     */
     private IdeaService service;
 
     @Override
     public void start(Stage stage) throws IOException
     {
-        // One clock, created once and passed everywhere (§10 decision #6). systemDefaultZone,
-        // not systemUTC: the formatter renders "Aug 3" in the user's zone, and a UTC rendering
-        // shows the wrong day for part of every day.
         Clock clock = Clock.systemDefaultZone();
 
         IdeaListController listController;
@@ -62,18 +52,18 @@ public class App extends Application
         catch(StorageException e)
         {
             showStorageFailure(e);
-            // Without this the runtime has no window to close and the process hangs with no UI.
             Platform.exit();
             return;
         }
 
-        // The whole of the editor's wiring: the view package never names IdeaService, and App
-        // stays the only class that knows how one is built.
         IdeaEditorDialog editorDialog =
             new IdeaEditorDialog(() -> new IdeaEditorController(service));
 
-        MainView mainView =
-            new MainView(listController, new IdeaDateFormatter(clock), editorDialog);
+        BlockRenderer blockRenderer =
+            new BlockRenderer(uri -> getHostServices().showDocument(uri.toString()));
+
+        MainView mainView = new MainView(
+            listController, new IdeaDateFormatter(clock), editorDialog, blockRenderer);
 
         FXMLLoader loader = new FXMLLoader(resource(FXML_MAIN));
         loader.setControllerFactory(type ->
@@ -95,7 +85,7 @@ public class App extends Application
         );
 
         stage.setTitle("Timeline");
-        stage.setMinWidth(640);
+        stage.setMinWidth(820);
         stage.setMinHeight(480);
         stage.setScene(scene);
         stage.show();
@@ -115,16 +105,10 @@ public class App extends Application
         }
         catch(StorageException e)
         {
-            // Shutting down: there is no UI left to tell, and an exception out of stop() is just
-            // noise on the way out the door.
             System.err.println("Timeline: could not close the database cleanly — " + e.getMessage());
         }
     }
 
-    /**
-     * The composition root. {@code connectionSource} is assigned to the field before anything that
-     * can throw, so a failure part-way through still leaves {@link #stop()} something to close.
-     */
     private IdeaListController buildListController(Clock clock)
     {
         connectionSource = SqliteConnectionSource.atDefaultLocation();

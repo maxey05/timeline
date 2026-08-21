@@ -15,6 +15,5 @@ public interface IdeaRepository
 
     boolean delete(IdeaId id);
 
-    //.
     long count();
 }

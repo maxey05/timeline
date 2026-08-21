@@ -5,6 +5,7 @@ import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.domain.query.SortOrder;
 import com.emgi.timeline.view.cell.IdeaListCell;
+import com.emgi.timeline.view.content.BlockRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
@@ -17,26 +18,26 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * The {@code fx:controller} for MainView.fxml — a view backing class, not an MVC controller
- * (ARCHITECTURE.md §2). It binds nodes to state and forwards gestures. It contains no rules.
- */
 public class MainView
 {
     private static final ButtonType DELETE =
@@ -45,6 +46,7 @@ public class MainView
     private final IdeaListController controller;
     private final IdeaDateFormatter dateFormatter;
     private final IdeaEditorDialog editorDialog;
+    private final BlockRenderer blockRenderer;
 
     @FXML
     private ListView<Idea> ideaListView;
@@ -73,20 +75,44 @@ public class MainView
     @FXML
     private Button clearFiltersButton;
 
-    /**
-     * Not a tag, and not in a {@code ToggleGroup}: it is selected exactly when no tag is, and
-     * clicking it clears the tag selection. A group would enforce single selection, which is the
-     * opposite of the OR filter locked decision #4 asks for.
-     */
+    @FXML
+    private StackPane detailRegion;
+
+    @FXML
+    private VBox detailPlaceholder;
+
+    @FXML
+    private VBox detailPane;
+
+    @FXML
+    private Label detailTitle;
+
+    @FXML
+    private Label detailMeta;
+
+    @FXML
+    private FlowPane detailTags;
+
+    @FXML
+    private ScrollPane detailScroll;
+
+    @FXML
+    private VBox detailBlocks;
+
+    @FXML
+    private Button detailEditButton;
+
     private final ToggleButton allTagsChip = new ToggleButton("All");
 
     public MainView(IdeaListController controller,
                     IdeaDateFormatter dateFormatter,
-                    IdeaEditorDialog editorDialog)
+                    IdeaEditorDialog editorDialog,
+                    BlockRenderer blockRenderer)
     {
         this.controller = Objects.requireNonNull(controller, "controller");
         this.dateFormatter = Objects.requireNonNull(dateFormatter, "dateFormatter");
         this.editorDialog = Objects.requireNonNull(editorDialog, "editorDialog");
+        this.blockRenderer = Objects.requireNonNull(blockRenderer, "blockRenderer");
     }
 
     @FXML
@@ -94,7 +120,10 @@ public class MainView
     {
         if(ideaListView == null || emptyState == null || newIdeaButton == null
             || searchField == null || sortChoice == null || tagFilterRow == null
-            || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null)
+            || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null
+            || detailRegion == null || detailPlaceholder == null || detailPane == null
+            || detailTitle == null || detailMeta == null || detailTags == null
+            || detailScroll == null || detailBlocks == null || detailEditButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
@@ -105,14 +134,8 @@ public class MainView
         ideaListView.setCellFactory(
             list -> new IdeaListCell(dateFormatter, this::editIdea, this::deleteIdea));
 
-        // ListView's default placeholder is the string "No content in table", which would flash
-        // behind the empty states below.
         ideaListView.setPlaceholder(new Region());
 
-        // Three mutually exclusive center states. "No ideas yet" is about the database; "no
-        // matches" is about the query — telling someone with 200 ideas that they have none is the
-        // bug this split exists to prevent. Bind both visible AND managed: an invisible but
-        // managed node still occupies layout space.
         BooleanBinding noIdeasAtAll = Bindings.isEmpty(controller.allIdeas());
         BooleanBinding nothingVisible = Bindings.isEmpty(controller.ideas());
 
@@ -131,9 +154,8 @@ public class MainView
         newIdeaButton.setOnAction(event -> createIdea());
 
         buildFilterControls();
+        buildDetailPane(noIdeasAtAll);
 
-        // Double-click opens the selected row. Guarded on a real item, so a double-click on the
-        // empty space below the last idea does nothing.
         ideaListView.setOnMouseClicked(event ->
         {
             if(event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2)
@@ -147,20 +169,16 @@ public class MainView
         });
     }
 
-    /** Search box, sort control, and the tag chip row (§6.4). */
     private void buildFilterControls()
     {
-        // Bidirectional: clearFilters() must empty the box on screen, not just in the model.
         searchField.textProperty().bindBidirectional(controller.searchTextProperty());
 
-        // Items before the binding, so the initial value has something to resolve against.
         sortChoice.getItems().setAll(SortOrder.values());
         sortChoice.setConverter(new StringConverter<SortOrder>()
         {
             @Override
             public String toString(SortOrder order)
             {
-                // The labels live on the enum (§10) — never a switch here, never a literal.
                 return order == null ? "" : order.displayName();
             }
 
@@ -176,8 +194,6 @@ public class MainView
         allTagsChip.setOnAction(event ->
         {
             controller.selectedTags().clear();
-            // clear() on an already-empty list fires no change event, so without this line a
-            // click on an already-selected "All" would leave it drawn as unselected.
             syncChipSelection();
         });
 
@@ -189,15 +205,9 @@ public class MainView
         controller.selectedTags().addListener(
             (ListChangeListener<Tag>) change -> syncChipSelection());
 
-        // App.start() calls load() before FXMLLoader.load(), so there is already data to draw.
         rebuildTagChips();
     }
 
-    /**
-     * Rebuilds the chip row from the controller's tag list. Chips are cheap and few — the tag
-     * vocabulary of a personal idea list is tens of entries — so this rebuilds wholesale rather
-     * than diffing, which is why the controller only republishes the list when it truly changed.
-     */
     private void rebuildTagChips()
     {
         List<Node> chips = new ArrayList<>();
@@ -216,11 +226,6 @@ public class MainView
         syncChipSelection();
     }
 
-    /**
-     * Pushes the controller's selection onto the chips. {@code setSelected} does not fire an
-     * {@code ActionEvent} — only a real click does — so this cannot loop back into
-     * {@code toggleTag}.
-     */
     private void syncChipSelection()
     {
         allTagsChip.setSelected(controller.selectedTags().isEmpty());
@@ -237,6 +242,67 @@ public class MainView
         }
     }
 
+    private void buildDetailPane(BooleanBinding noIdeasAtAll)
+    {
+        detailRegion.visibleProperty().bind(noIdeasAtAll.not());
+        detailRegion.managedProperty().bind(detailRegion.visibleProperty());
+
+        BooleanBinding nothingSelected = controller.selectedIdeaProperty().isNull();
+
+        detailPlaceholder.visibleProperty().bind(nothingSelected);
+        detailPlaceholder.managedProperty().bind(detailPlaceholder.visibleProperty());
+
+        detailPane.visibleProperty().bind(nothingSelected.not());
+        detailPane.managedProperty().bind(detailPane.visibleProperty());
+
+        ideaListView.getSelectionModel().selectedItemProperty().addListener(
+            (observable, previous, current) -> controller.select(current));
+
+        controller.selectedIdeaProperty().addListener(
+            (observable, previous, current) ->
+            {
+                showDetail(current);
+
+                if(current != null && ideaListView.getSelectionModel().getSelectedItem() != current)
+                {
+                    ideaListView.getSelectionModel().select(current);
+                }
+            });
+
+        detailEditButton.setOnAction(event -> editIdea(controller.selectedIdeaProperty().get()));
+
+        showDetail(controller.selectedIdeaProperty().get());
+    }
+
+    private void showDetail(Idea idea)
+    {
+        if(idea == null)
+        {
+            detailBlocks.getChildren().clear();
+            detailTags.getChildren().clear();
+            return;
+        }
+
+        detailTitle.setText(idea.title());
+        detailMeta.setText(dateFormatter.format(idea.createdAt())
+            + " \u00b7 " + idea.status().displayName());
+
+        List<Tag> ordered = new ArrayList<>(idea.tags());
+        ordered.sort(Comparator.comparing(Tag::name));
+
+        List<Node> chips = new ArrayList<>(ordered.size());
+        for(Tag tag : ordered)
+        {
+            Label chip = new Label(tag.name());
+            chip.getStyleClass().add("tag-chip");
+            chips.add(chip);
+        }
+        detailTags.getChildren().setAll(chips);
+
+        detailBlocks.getChildren().setAll(blockRenderer.renderAll(idea.description()));
+        detailScroll.setVvalue(0);
+    }
+
     private void createIdea()
     {
         IdeaEditorDialog.Result result = editorDialog.showCreate(window());
@@ -245,9 +311,6 @@ public class MainView
         {
             controller.add(idea);
 
-            // The active filter may exclude what was just created — a new idea shares no tag with
-            // a tag filter, or its title misses the search term. Selecting a row that is not in
-            // the visible list is a silent no-op, so ask first.
             if(controller.ideas().contains(idea))
             {
                 ideaListView.getSelectionModel().select(idea);
@@ -269,7 +332,6 @@ public class MainView
 
         if(result.targetMissing())
         {
-            // The row on screen is a ghost — the cheapest correct fix is to re-read storage.
             controller.load();
         }
     }
@@ -288,7 +350,6 @@ public class MainView
         confirm.setContentText("This can't be undone.");
         confirm.getButtonTypes().setAll(ButtonType.CANCEL, DELETE);
 
-        // Make Cancel the default, so Enter on a confirmation dialog never destroys anything.
         Button cancelButton = (Button) confirm.getDialogPane().lookupButton(ButtonType.CANCEL);
         cancelButton.setDefaultButton(true);
         Button deleteButton = (Button) confirm.getDialogPane().lookupButton(DELETE);
@@ -301,7 +362,6 @@ public class MainView
         }
     }
 
-    /** The owner for modal children. Available from the moment the scene is shown. */
     private Window window()
     {
         return ideaListView.getScene() == null ? null : ideaListView.getScene().getWindow();

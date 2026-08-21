@@ -1,9 +1,12 @@
 package com.emgi.timeline.view;
 
+import com.emgi.timeline.controller.BlockDraft;
+import com.emgi.timeline.controller.BlockKind;
 import com.emgi.timeline.controller.IdeaEditorController;
 import com.emgi.timeline.controller.IdeaEditorController.SaveResult;
 import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
+import com.emgi.timeline.view.content.BlockEditorFactory;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
@@ -15,31 +18,27 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The {@code fx:controller} for IdeaEditorView.fxml — a view backing class, not an MVC controller
- * (ARCHITECTURE.md §2). Every rule it appears to enforce actually lives in
- * {@link IdeaEditorController} or in the domain; this class binds and forwards.
- */
 public class IdeaEditorView
 {
-    /** Prefix on every visible error message. The glyph is presentation, so it is chosen here. */
     private static final String ERROR_PREFIX = "⚠ ";
 
     private final IdeaEditorController controller;
 
-    /** Set by {@link IdeaEditorDialog} once the scene exists; Save and Cancel close it. */
     private Stage stage;
+
+    private BlockEditorFactory blockEditors;
 
     @FXML
     private TextField titleField;
@@ -60,7 +59,19 @@ public class IdeaEditorView
     private HBox statusBox;
 
     @FXML
-    private TextArea descriptionArea;
+    private ScrollPane blockScroll;
+
+    @FXML
+    private VBox blockList;
+
+    @FXML
+    private Button addTextButton;
+
+    @FXML
+    private Button addLinkButton;
+
+    @FXML
+    private Button addImageButton;
 
     @FXML
     private Label descriptionErrorLabel;
@@ -84,29 +95,27 @@ public class IdeaEditorView
     @FXML
     private void initialize()
     {
-        if(titleField == null || tagPane == null || statusBox == null || descriptionArea == null
-            || saveButton == null || cancelButton == null)
+        if(titleField == null || tagPane == null || statusBox == null || blockScroll == null
+            || blockList == null || addTextButton == null || addLinkButton == null
+            || addImageButton == null || saveButton == null || cancelButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
             );
         }
 
-        // Bidirectional: the controller owns the value, the field is a window onto it.
         titleField.textProperty().bindBidirectional(controller.titleProperty());
-        descriptionArea.textProperty().bindBidirectional(controller.descriptionTextProperty());
 
         bindError(titleErrorLabel, controller.titleErrorProperty());
         bindError(tagsErrorLabel, controller.tagsErrorProperty());
         bindError(descriptionErrorLabel, controller.descriptionErrorProperty());
 
         buildStatusControls();
+        buildBlockEditor();
 
         renderTags();
         controller.tags().addListener((ListChangeListener<Tag>) change -> renderTags());
 
-        // Enter in the tag field commits one tag. The field keeps focus so several can be typed
-        // in a row; it is only cleared when the tag was accepted.
         tagField.setOnAction(event ->
         {
             if(controller.addTag(tagField.getText()))
@@ -119,12 +128,6 @@ public class IdeaEditorView
         cancelButton.setOnAction(event -> stage.close());
     }
 
-    /**
-     * §6.3: the error slot keeps its space permanently. Bind {@code visible} and <em>not</em>
-     * {@code managed} — an invisible-but-managed node still occupies layout, which is exactly what
-     * stops the form jumping when a message appears. (The Phase 3 list cell does the opposite with
-     * its preview label, on purpose: there, the row should collapse.)
-     */
     private static void bindError(Label label, ObservableValue<String> message)
     {
         label.textProperty().bind(Bindings.createStringBinding(
@@ -141,7 +144,6 @@ public class IdeaEditorView
         return text == null || text.isEmpty();
     }
 
-    /** Built from the enum, labelled from {@code displayName()} — §10, never hardcoded strings. */
     private void buildStatusControls()
     {
         ToggleGroup group = new ToggleGroup();
@@ -163,6 +165,37 @@ public class IdeaEditorView
                 controller.statusProperty().set((IdeaStatus) current.getUserData());
             }
         });
+    }
+
+    private void buildBlockEditor()
+    {
+        blockEditors = new BlockEditorFactory(controller);
+
+        rebuildBlocks();
+        controller.blocks().addListener((ListChangeListener<BlockDraft>) change -> rebuildBlocks());
+
+        addTextButton.setOnAction(event -> addBlock(BlockKind.TEXT));
+        addLinkButton.setOnAction(event -> addBlock(BlockKind.LINK));
+        addImageButton.setOnAction(event -> addBlock(BlockKind.IMAGE));
+    }
+
+    private void rebuildBlocks()
+    {
+        List<Node> rows = new ArrayList<>(controller.blocks().size());
+        int count = controller.blocks().size();
+
+        for(int i = 0; i < count; i++)
+        {
+            rows.add(blockEditors.create(controller.blocks().get(i), i == 0, i == count - 1));
+        }
+
+        blockList.getChildren().setAll(rows);
+    }
+
+    private void addBlock(BlockKind kind)
+    {
+        controller.addBlock(kind);
+        blockScroll.setVvalue(1.0);
     }
 
     private void renderTags()
@@ -200,20 +233,12 @@ public class IdeaEditorView
         {
             case SAVED -> stage.close();
 
-            // Nothing else to do: the error properties are bound, so the messages are already on
-            // screen. Staying open is the entire point. Focus goes back to the first field so the
-            // fix is one keystroke away.
             case INVALID -> titleField.requestFocus();
 
             case MISSING -> showMissing();
         }
     }
 
-    /**
-     * Unreachable in V1 — the editor is modal, so nothing can delete the idea while it is open —
-     * but §7.2's NOT_FOUND branch exists, and a dialog that silently does nothing is worse than a
-     * dialog that says what happened.
-     */
     private void showMissing()
     {
         Alert alert = new Alert(AlertType.WARNING);

@@ -16,27 +16,16 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/**
- * Opens the editor as a modal dialog (locked decision #5) and reports what came back.
- *
- * <p>A plain {@link Stage}, not a {@code Dialog}/{@code DialogPane}: a {@code DialogPane}'s buttons
- * close the dialog on click, so holding an invalid form open would need an event filter on a
- * looked-up button, and its default styling fights §6.2's palette. Two ordinary buttons in a
- * {@code Stage} have neither problem.
- */
 public final class IdeaEditorDialog
 {
     private static final String FXML = "/com/emgi/timeline/fxml/IdeaEditorView.fxml";
 
-    private static final double WIDTH = 520;
-    private static final double HEIGHT = 560;
+    private static final double WIDTH = 560;
+    private static final double HEIGHT = 680;
 
-    /**
-     * What one dialog session produced.
-     *
-     * @param saved         the persisted idea, empty if the user cancelled or the save failed
-     * @param targetMissing the idea being edited had been deleted — the caller's list is stale
-     */
+    private static final double MIN_WIDTH = 480;
+    private static final double MIN_HEIGHT = 520;
+
     public record Result(Optional<Idea> saved, boolean targetMissing)
     {
         public Result
@@ -45,7 +34,6 @@ public final class IdeaEditorDialog
         }
     }
 
-    /** One fresh controller per dialog — they are not reusable, and are not meant to be. */
     private final Supplier<IdeaEditorController> controllers;
 
     public IdeaEditorDialog(Supplier<IdeaEditorController> controllers)
@@ -67,8 +55,6 @@ public final class IdeaEditorDialog
     {
         IdeaEditorController controller = controllers.get();
 
-        // Populate before the FXML loads: initialize() reads the form model to pick the selected
-        // status radio, so an empty controller here would always show "Incomplete".
         if(existing == null)
         {
             controller.beginCreate();
@@ -98,7 +84,6 @@ public final class IdeaEditorDialog
         }
         catch(IOException e)
         {
-            // A missing or malformed FXML on the classpath is a packaging bug, not a user error.
             throw new UncheckedIOException("Could not load " + FXML, e);
         }
 
@@ -109,14 +94,14 @@ public final class IdeaEditorDialog
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
 
-        // Inherit the main window's stylesheets rather than re-listing the paths — one place to
-        // change when the theme file is swapped (§10, "theming is a file swap").
         if(owner != null && owner.getScene() != null)
         {
             scene.getStylesheets().setAll(owner.getScene().getStylesheets());
         }
 
         stage.setScene(scene);
+        stage.setMinWidth(MIN_WIDTH);
+        stage.setMinHeight(MIN_HEIGHT);
         view.setStage(stage);
         stage.showAndWait();
 
