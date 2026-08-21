@@ -19,7 +19,6 @@
     <assertj.version>3.27.3</assertj.version>
     <sqlite.version>3.49.1.0</sqlite.version>
 
-    <!-- Launcher, not App — see Step 5. -->
     <main.class>com.emgi.timeline.Launcher</main.class>
   </properties>
 
@@ -36,7 +35,6 @@
   </dependencyManagement>
 
   <dependencies>
-    <!-- JavaFX. Maven resolves the OS-specific classifier automatically; no os-maven-plugin needed. -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
@@ -48,7 +46,6 @@
       <version>${javafx.version}</version>
     </dependency>
 
-    <!-- Declared now (decision #8); first used in Phase 2. -->
     <dependency>
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
