@@ -45,6 +45,8 @@ public final class IdeaEditorController
         MISSING
     }
 
+    private static final String SNAPSHOT_SEPARATOR = "\u001f";
+
     private final IdeaService service;
 
     private final StringProperty title = new SimpleStringProperty("");
@@ -64,6 +66,8 @@ public final class IdeaEditorController
     private Idea savedIdea;
 
     private boolean targetMissing;
+
+    private List<String> openingSnapshot = List.of();
 
     public IdeaEditorController(IdeaService service)
     {
@@ -177,6 +181,49 @@ public final class IdeaEditorController
         return editingId != null;
     }
 
+    public boolean isDirty()
+    {
+        return !currentSnapshot().equals(openingSnapshot);
+    }
+
+    private List<String> currentSnapshot()
+    {
+        List<String> lines = new ArrayList<>();
+
+        lines.add("title" + SNAPSHOT_SEPARATOR + text(title.get()).strip());
+        lines.add("status" + SNAPSHOT_SEPARATOR + status.get());
+
+        List<String> names = new ArrayList<>(tags.size());
+        for(Tag tag : tags)
+        {
+            names.add(tag.name());
+        }
+
+        names.sort(Comparator.naturalOrder());
+
+        for(String name : names)
+        {
+            lines.add("tag" + SNAPSHOT_SEPARATOR + name);
+        }
+
+        for(BlockDraft draft : blocks)
+        {
+            if(draft.isBlank())
+            {
+                continue;
+            }
+
+            lines.add("block" + SNAPSHOT_SEPARATOR + draft.snapshot());
+        }
+
+        return List.copyOf(lines);
+    }
+
+    private static String text(String value)
+    {
+        return value == null ? "" : value;
+    }
+
     public Optional<Idea> savedIdea()
     {
         return Optional.ofNullable(savedIdea);
@@ -199,6 +246,8 @@ public final class IdeaEditorController
         tags.clear();
 
         clearErrors();
+
+        openingSnapshot = currentSnapshot();
     }
 
     public void beginEdit(Idea idea)
@@ -218,6 +267,8 @@ public final class IdeaEditorController
         tags.setAll(ordered);
 
         clearErrors();
+
+        openingSnapshot = currentSnapshot();
     }
 
     public boolean addTag(String raw)

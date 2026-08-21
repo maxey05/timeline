@@ -408,6 +408,197 @@ class IdeaEditorControllerTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
+
+    @Test
+    @DisplayName("a fresh create form is not dirty")
+    void aFreshCreateFormIsNotDirty() {
+        controller.beginCreate();
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a freshly opened edit form is not dirty")
+    void aFreshlyOpenedEditFormIsNotDirty() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withTitle("Rewrite the scheduler")
+                .withDescription(Description.ofText("A cleaner approach."))
+                .withTags(IdeaFixtures.tags("java", "school"))
+                .withStatus(IdeaStatus.IN_PROGRESS)
+                .build());
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("typing in the title makes it dirty")
+    void typingInTheTitleMakesItDirty() {
+        controller.beginCreate();
+
+        controller.titleProperty().set("An idea");
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("typing and undoing leaves it clean")
+    void typingAndUndoingLeavesItClean() {
+        controller.beginCreate();
+
+        controller.titleProperty().set("An idea");
+        controller.titleProperty().set("");
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("trailing whitespace in the title is not a dirtying change")
+    void trailingWhitespaceInTheTitleIsNotADirtyingChange() {
+        controller.beginEdit(IdeaFixtures.ideaTitled("An idea"));
+
+        controller.titleProperty().set("An idea   ");
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("changing the status makes it dirty")
+    void changingTheStatusMakesItDirty() {
+        controller.beginCreate();
+
+        controller.statusProperty().set(IdeaStatus.COMPLETED);
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("adding a tag makes it dirty")
+    void addingATagMakesItDirty() {
+        controller.beginCreate();
+
+        controller.addTag("java");
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("removing a tag makes it dirty")
+    void removingATagMakesItDirty() {
+        controller.beginEdit(IdeaFixtures.anIdea().withTags(IdeaFixtures.tags("java")).build());
+
+        controller.removeTag(Tag.of("java"));
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("re-adding a tag that is already there leaves it clean")
+    void addingATagThatIsAlreadyThereLeavesItClean() {
+        controller.beginEdit(IdeaFixtures.anIdea().withTags(IdeaFixtures.tags("java")).build());
+
+        controller.addTag("JAVA");
+
+        assertThat(controller.tags()).hasSize(1);
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("removing a tag and adding it back leaves it clean, whatever the order")
+    void removingATagAndAddingItBackLeavesItClean() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withTags(IdeaFixtures.tags("java", "school"))
+                .build());
+
+        controller.removeTag(Tag.of("java"));
+        controller.addTag("java");
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("adding an empty block leaves it clean")
+    void addingAnEmptyBlockLeavesItClean() {
+        controller.beginEdit(IdeaFixtures.ideaTitled("An idea"));
+
+        controller.addBlock(BlockKind.TEXT);
+        controller.addBlock(BlockKind.LINK);
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("typing into a new block makes it dirty")
+    void typingIntoANewBlockMakesItDirty() {
+        controller.beginCreate();
+
+        firstBlock().textProperty().set("Body");
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("removing a block makes it dirty")
+    void removingABlockMakesItDirty() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withDescription(new Description(List.of(
+                        new TextBlock("First."),
+                        new TextBlock("Second."))))
+                .build());
+
+        controller.removeBlock(controller.blocks().get(1));
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("moving a block makes it dirty — order is content")
+    void movingABlockMakesItDirty() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withDescription(new Description(List.of(
+                        new TextBlock("First."),
+                        new TextBlock("Second."))))
+                .build());
+
+        controller.moveBlockDown(controller.blocks().get(0));
+
+        assertThat(controller.isDirty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("editing an idea with link and image blocks starts clean")
+    void editingAnIdeaWithLinkAndImageBlocksStartsClean() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withDescription(new Description(List.of(
+                        new TextBlock("First."),
+                        new LinkBlock(URI.create("https://example.com/x"), "The write-up"),
+                        new ImageBlock(URI.create("https://example.com/y.png"), "A diagram"))))
+                .build());
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("beginCreate after a dirty edit resets the baseline")
+    void beginCreateResetsTheBaseline() {
+        controller.beginEdit(IdeaFixtures.ideaTitled("An idea"));
+        controller.titleProperty().set("Something else");
+
+        controller.beginCreate();
+
+        assertThat(controller.isDirty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a failed save leaves the form dirty, so Esc still asks")
+    void aFailedSaveLeavesTheFormDirty() {
+        controller.beginCreate();
+        controller.titleProperty().set("   ");
+        firstBlock().textProperty().set("Body");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+        assertThat(controller.isDirty()).isTrue();
+    }
+
     private BlockDraft firstBlock() {
         return controller.blocks().get(0);
     }

@@ -11,6 +11,8 @@ import java.util.Objects;
 
 public final class BlockDraft
 {
+    private static final String FIELD_SEPARATOR = "\u001f";
+
     private final BlockKind kind;
 
     private final StringProperty text = new SimpleStringProperty(this, "text", "");
@@ -80,6 +82,21 @@ public final class BlockDraft
     public StringProperty altTextProperty()
     {
         return altText;
+    }
+
+    public String snapshot()
+    {
+        return kind
+            + FIELD_SEPARATOR + value(text).strip()
+            + FIELD_SEPARATOR + value(uri).strip()
+            + FIELD_SEPARATOR + value(label)
+            + FIELD_SEPARATOR + value(altText);
+    }
+
+    private static String value(StringProperty property)
+    {
+        String current = property.get();
+        return current == null ? "" : current;
     }
 
     public boolean isBlank()
