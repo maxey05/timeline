@@ -22,10 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The §7.4 wiring, tested with no toolkit running — which is the whole reason controllers are
- * forbidden from touching the scene graph (see {@link ControllerPurityTest}).
- */
 @DisplayName("IdeaListController")
 class IdeaListControllerTest {
 
@@ -39,7 +35,6 @@ class IdeaListControllerTest {
             IdeaFixtures.anIdea().withIdNumber(3).withTitle("Newest idea")
                     .createdAt("2026-03-01T00:00:00Z").build();
 
-    // Phase 5 works on tags and titles, so it needs ideas that differ in both.
     private static final Idea SCHEDULER =
             IdeaFixtures.anIdea().withIdNumber(11).withTitle("Rewrite the scheduler")
                     .withTags("java", "school").createdAt("2026-04-01T00:00:00Z").build();
@@ -64,7 +59,6 @@ class IdeaListControllerTest {
                 FixedClock.atDefault());
     }
 
-    /** Saves straight to the repository so each idea can have a createdAt of its own. */
     private void store(Idea... ideas) {
         for (Idea idea : ideas) {
             repository.save(idea);
@@ -144,7 +138,6 @@ class IdeaListControllerTest {
         store(OLDEST, MIDDLE, NEWEST);
         controller.load();
 
-        // Nothing is left in storage. If filtering re-queried, the list would empty out.
         repository.delete(OLDEST.id());
         repository.delete(MIDDLE.id());
         repository.delete(NEWEST.id());
@@ -212,8 +205,6 @@ class IdeaListControllerTest {
         assertThatThrownBy(() -> new IdeaListController(null))
                 .isInstanceOf(NullPointerException.class);
     }
-
-    // ---- Phase 4: mutations ----
 
     @Test
     @DisplayName("add puts the idea in the list")
@@ -318,9 +309,6 @@ class IdeaListControllerTest {
         assertThatThrownBy(() -> controller.delete(null)).isInstanceOf(NullPointerException.class);
     }
 
-
-    // ---- Phase 5: search ----
-
     @Test
     @DisplayName("the search box filters by title substring")
     void searchFiltersByTitleSubstring() {
@@ -353,7 +341,6 @@ class IdeaListControllerTest {
         store(awkward, PORTFOLIO);
         controller.load();
 
-        // A PatternSyntaxException here would mean someone reached for Pattern.compile (§8).
         controller.searchTextProperty().set("c++ (");
 
         assertThat(controller.ideas()).containsExactly(awkward);
@@ -401,8 +388,6 @@ class IdeaListControllerTest {
         assertThat(controller.ideas()).containsExactly(umlaut);
     }
 
-    // ---- Phase 5: tags ----
-
     @Test
     @DisplayName("available tags are the union of every tag in use")
     void availableTagsIsTheUnionOfEveryTagInUse() {
@@ -418,7 +403,6 @@ class IdeaListControllerTest {
         store(SCHEDULER, PORTFOLIO, NOTES);
         controller.load();
 
-        // "school" is on two ideas and appears once; the order is the chip row's order.
         assertThat(controller.availableTags())
                 .containsExactly(Tag.of("java"), Tag.of("school"), Tag.of("web"));
     }
@@ -466,8 +450,6 @@ class IdeaListControllerTest {
 
         controller.selectedTags().addAll(Tag.of("java"), Tag.of("web"));
 
-        // SCHEDULER has java (not web) and PORTFOLIO has web (not java) — containsAll would show
-        // neither. NOTES has only school and stays out.
         assertThat(controller.ideas()).containsExactly(PORTFOLIO, SCHEDULER);
     }
 
@@ -481,13 +463,10 @@ class IdeaListControllerTest {
 
         controller.delete(PORTFOLIO);
 
-        // §8: not "silently show zero results forever".
         assertThat(controller.availableTags()).doesNotContain(Tag.of("web"));
         assertThat(controller.selectedTags()).isEmpty();
         assertThat(controller.ideas()).containsExactly(NOTES, SCHEDULER);
     }
-
-    // ---- Phase 5: sort ----
 
     @Test
     @DisplayName("the sort property drives the order")
@@ -525,15 +504,12 @@ class IdeaListControllerTest {
 
         List<Idea> before = new ArrayList<>(controller.ideas());
 
-        // Re-apply the query a few times; nothing about the pair changed, so nothing may move.
         controller.searchTextProperty().set("twin");
         controller.searchTextProperty().set("");
 
         assertThat(controller.ideas()).containsExactlyElementsOf(before);
         assertThat(controller.ideas()).containsExactly(first, second);
     }
-
-    // ---- Phase 5: the dimensions together ----
 
     @Test
     @DisplayName("search and tags combine with AND across the two dimensions")
@@ -604,8 +580,6 @@ class IdeaListControllerTest {
         assertThat(controller.filterActiveProperty().get()).isFalse();
     }
 
-    // ---- Phase 5: what the view may and may not touch ----
-
     @Test
     @DisplayName("allIdeas ignores the filter, so the view can tell 'no ideas' from 'no matches'")
     void allIdeasIgnoresTheFilter() {
@@ -648,8 +622,6 @@ class IdeaListControllerTest {
         assertThat(controller.sortOrderProperty().get()).isEqualTo(SortOrder.OLDEST_FIRST);
         assertThat(controller.ideas()).containsExactly(PORTFOLIO);
     }
-
-    // ---- Phase 5: mutating the list while a filter is active ----
 
     @Test
     @DisplayName("an idea the filter excludes is created but not shown")
@@ -729,7 +701,141 @@ class IdeaListControllerTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
-    /** The titles currently on screen, in order. */
+    @Test
+    @DisplayName("nothing is selected to begin with")
+    void nothingIsSelectedToBeginWith() {
+        assertThat(controller.selectedIdeaProperty().get()).isNull();
+    }
+
+    @Test
+    @DisplayName("select publishes the idea the detail pane should draw")
+    void selectPublishesTheIdea() {
+        store(SCHEDULER);
+        controller.load();
+
+        controller.select(SCHEDULER);
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(SCHEDULER);
+    }
+
+    @Test
+    @DisplayName("select(null) clears the selection — what the ListView pushes when a row leaves")
+    void selectNullClears() {
+        store(SCHEDULER);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.select(null);
+
+        assertThat(controller.selectedIdeaProperty().get()).isNull();
+    }
+
+    @Test
+    @DisplayName("replace re-points the selection at the edited value, so the pane cannot go stale")
+    void replaceRepointsTheSelection() {
+        store(SCHEDULER);
+        controller.load();
+        Idea onScreen = controller.ideas().get(0);
+        controller.select(onScreen);
+
+        Idea edited = onScreen.withTitle("Rewrite the scheduler, properly");
+        controller.replace(edited);
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(edited);
+        assertThat(controller.selectedIdeaProperty().get().title())
+                .isEqualTo("Rewrite the scheduler, properly");
+    }
+
+    @Test
+    @DisplayName("replace survives a listener that clears the selection mid-change — the ListView does exactly that")
+    void replaceSurvivesASelectionClearedMidChange() {
+        store(SCHEDULER);
+        controller.load();
+        Idea onScreen = controller.ideas().get(0);
+        controller.select(onScreen);
+
+        controller.ideas().addListener(
+                (javafx.collections.ListChangeListener<Idea>) change -> controller.select(null));
+
+        Idea edited = onScreen.withTitle("Rewrite the scheduler, properly");
+        controller.replace(edited);
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(edited);
+    }
+
+    @Test
+    @DisplayName("replacing a different idea leaves the selection alone")
+    void replacingADifferentIdeaLeavesTheSelectionAlone() {
+        store(SCHEDULER, PORTFOLIO);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.replace(PORTFOLIO.withTitle("Portfolio site ideas, revised"));
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(SCHEDULER);
+    }
+
+    @Test
+    @DisplayName("deleting the selected idea clears the selection")
+    void deletingTheSelectedIdeaClearsTheSelection() {
+        store(SCHEDULER);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.delete(SCHEDULER);
+
+        assertThat(controller.selectedIdeaProperty().get()).isNull();
+    }
+
+    @Test
+    @DisplayName("deleting a different idea leaves the selection alone")
+    void deletingADifferentIdeaLeavesTheSelectionAlone() {
+        store(SCHEDULER, PORTFOLIO);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.delete(PORTFOLIO);
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(SCHEDULER);
+    }
+
+    @Test
+    @DisplayName("load clears the selection — every idea in the list is a new object")
+    void loadClearsTheSelection() {
+        store(SCHEDULER);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.load();
+
+        assertThat(controller.selectedIdeaProperty().get()).isNull();
+    }
+
+    @Test
+    @DisplayName("adding an idea does not move the selection")
+    void addingAnIdeaDoesNotMoveTheSelection() {
+        store(SCHEDULER);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.add(PORTFOLIO);
+
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(SCHEDULER);
+    }
+
+    @Test
+    @DisplayName("filtering the selected idea out of view does not clear it here — that is the ListView's job")
+    void filteringOutTheSelectionIsNotThisControllersJob() {
+        store(SCHEDULER, PORTFOLIO);
+        controller.load();
+        controller.select(SCHEDULER);
+
+        controller.searchTextProperty().set("Portfolio");
+
+        assertThat(controller.ideas()).doesNotContain(SCHEDULER);
+        assertThat(controller.selectedIdeaProperty().get()).isEqualTo(SCHEDULER);
+    }
+
     private java.util.List<String> titles() {
         return controller.ideas().stream().map(Idea::title).toList();
     }

@@ -11,14 +11,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The counterpart to {@code DomainPurityTest}, guarding the rule that keeps controllers testable
- * without booting JavaFX: {@code controller/} may use {@code javafx.beans} and
- * {@code javafx.collections}, but never the scene graph (ARCHITECTURE.md §2, §5).
- *
- * <p>A controller that imports {@code javafx.scene} has become a view, and every test of it now
- * needs a running toolkit — which is exactly the outcome the layer split exists to prevent.
- */
 class ControllerPurityTest {
 
     private static final Path CONTROLLER_SOURCES =
@@ -35,7 +27,6 @@ class ControllerPurityTest {
     @Test
     @DisplayName("the controller source directory is where this test expects it")
     void controllerSourcesAreFound() throws IOException {
-        // Without this, a wrong working directory would make the scan below silently pass.
         assertThat(Files.isDirectory(CONTROLLER_SOURCES))
                 .as("expected controller sources at %s (working dir: %s)",
                         CONTROLLER_SOURCES, Path.of("").toAbsolutePath())

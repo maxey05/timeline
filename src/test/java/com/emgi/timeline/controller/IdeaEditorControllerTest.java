@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.emgi.timeline.controller.IdeaEditorController.SaveResult;
+import com.emgi.timeline.domain.content.ImageBlock;
+import com.emgi.timeline.domain.content.LinkBlock;
 import com.emgi.timeline.domain.content.TextBlock;
 import com.emgi.timeline.domain.model.Description;
 import com.emgi.timeline.domain.model.Idea;
@@ -15,21 +17,15 @@ import com.emgi.timeline.support.FixedClock;
 import com.emgi.timeline.support.IdeaFixtures;
 import com.emgi.timeline.support.RecordingIdeaRepository;
 import com.emgi.timeline.support.SequentialIdGenerator;
+import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The §7.1–7.2 form logic, tested with no toolkit running — the payoff of the rule
- * {@link ControllerPurityTest} enforces.
- *
- * <p>Several of these assert not just the outcome but that <em>nothing was written</em>, which is
- * §8's "invalid input never reaches the repository, use a spy to prove it" applied one layer up
- * from {@code IdeaServiceTest}.
- */
 @DisplayName("IdeaEditorController")
 class IdeaEditorControllerTest {
 
@@ -45,7 +41,6 @@ class IdeaEditorControllerTest {
                 new IdeaService(repository, new IdeaValidator(), new SequentialIdGenerator(), clock));
     }
 
-    /** Puts an idea in storage without going through the form. */
     private Idea store(Idea idea) {
         repository.save(idea);
         return idea;
@@ -55,8 +50,6 @@ class IdeaEditorControllerTest {
         return controller.savedIdea().orElseThrow();
     }
 
-    // ---- create mode ---------------------------------------------------------------
-
     @Test
     @DisplayName("a new form starts empty, incomplete, and error-free")
     void newFormStartsEmpty() {
@@ -64,7 +57,9 @@ class IdeaEditorControllerTest {
 
         assertThat(controller.isEditing()).isFalse();
         assertThat(controller.titleProperty().get()).isEmpty();
-        assertThat(controller.descriptionTextProperty().get()).isEmpty();
+        assertThat(controller.blocks()).hasSize(1);
+        assertThat(controller.blocks().get(0).kind()).isEqualTo(BlockKind.TEXT);
+        assertThat(controller.blocks().get(0).isBlank()).isTrue();
         assertThat(controller.statusProperty().get()).isEqualTo(IdeaStatus.INCOMPLETE);
         assertThat(controller.tags()).isEmpty();
         assertThat(controller.titleErrorProperty().get()).isEmpty();
@@ -102,32 +97,6 @@ class IdeaEditorControllerTest {
         assertThat(saved.tags()).containsExactlyInAnyOrder(Tag.of("java"), Tag.of("school"));
         assertThat(saved.createdAt()).isEqualTo(FixedClock.DEFAULT_INSTANT);
         assertThat(saved.updatedAt()).isEqualTo(FixedClock.DEFAULT_INSTANT);
-    }
-
-    @Test
-    @DisplayName("the description becomes exactly one text block")
-    void descriptionBecomesOneTextBlock() {
-        controller.beginCreate();
-        controller.titleProperty().set("An idea");
-        controller.descriptionTextProperty().set("A cleaner approach to the priority queue.");
-
-        controller.save();
-
-        assertThat(savedIdea().description().blocks())
-                .containsExactly(new TextBlock("A cleaner approach to the priority queue."));
-    }
-
-    @Test
-    @DisplayName("a blank description becomes an empty description, not one empty block")
-    void blankDescriptionBecomesAnEmptyDescription() {
-        controller.beginCreate();
-        controller.titleProperty().set("An idea");
-        controller.descriptionTextProperty().set("   \n\t ");
-
-        controller.save();
-
-        assertThat(savedIdea().description().isEmpty()).isTrue();
-        assertThat(savedIdea().description().blocks()).isEmpty();
     }
 
     @Test
@@ -193,7 +162,7 @@ class IdeaEditorControllerTest {
     void anOverlongDescriptionIsReported() {
         controller.beginCreate();
         controller.titleProperty().set("An idea");
-        controller.descriptionTextProperty()
+        controller.blocks().get(0).textProperty()
                 .set("x".repeat(IdeaValidator.TEXT_BLOCK_MAX_LENGTH + 1));
 
         assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
@@ -211,15 +180,12 @@ class IdeaEditorControllerTest {
             controller.addTag("tag" + i);
         }
 
-        // The form deliberately does not enforce the cap; the validator owns that rule.
         assertThat(controller.tags()).hasSize(IdeaValidator.MAX_TAGS + 1);
         assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
         assertThat(controller.tagsErrorProperty().get())
                 .contains(String.valueOf(IdeaValidator.MAX_TAGS));
         assertThat(repository.saved()).isEmpty();
     }
-
-    // ---- edit mode -----------------------------------------------------------------
 
     @Test
     @DisplayName("beginEdit populates every field from the stored idea")
@@ -235,7 +201,9 @@ class IdeaEditorControllerTest {
 
         assertThat(controller.isEditing()).isTrue();
         assertThat(controller.titleProperty().get()).isEqualTo("Portfolio site ideas");
-        assertThat(controller.descriptionTextProperty().get()).isEqualTo("Static, no framework.");
+        assertThat(controller.blocks()).hasSize(1);
+        assertThat(controller.blocks().get(0).textProperty().get())
+                .isEqualTo("Static, no framework.");
         assertThat(controller.statusProperty().get()).isEqualTo(IdeaStatus.IN_PROGRESS);
         assertThat(controller.tags()).containsExactly(Tag.of("web"));
     }
@@ -255,29 +223,15 @@ class IdeaEditorControllerTest {
     }
 
     @Test
-    @DisplayName("several text blocks flatten into the one text area, separated by a blank line")
-    void beginEditFlattensSeveralTextBlocks() {
-        Idea stored = IdeaFixtures.anIdea()
-                .withDescription(new Description(
-                        java.util.List.of(new TextBlock("First."), new TextBlock("Second."))))
-                .build();
-
-        controller.beginEdit(stored);
-
-        assertThat(controller.descriptionTextProperty().get()).isEqualTo("First.\n\nSecond.");
-    }
-
-    @Test
     @DisplayName("editing the form does not touch the stored idea — cancel is free")
     void editingDoesNotMutateTheStoredIdea() {
         Idea stored = store(IdeaFixtures.anIdea().withTitle("Original").withTags("java").build());
 
         controller.beginEdit(stored);
         controller.titleProperty().set("Changed my mind");
-        controller.descriptionTextProperty().set("New body");
+        controller.blocks().get(0).textProperty().set("New body");
         controller.statusProperty().set(IdeaStatus.COMPLETED);
         controller.addTag("web");
-        // No save: the dialog was cancelled.
 
         Idea reloaded = repository.findById(stored.id()).orElseThrow();
         assertThat(reloaded).isEqualTo(stored);
@@ -337,7 +291,6 @@ class IdeaEditorControllerTest {
         controller.save();
         assertThat(controller.targetMissing()).isTrue();
 
-        // A normal save on a live idea leaves the flag down.
         Idea alive = store(IdeaFixtures.anIdea().withIdNumber(9).withTitle("Alive").build());
         controller.beginEdit(alive);
         controller.save();
@@ -366,8 +319,6 @@ class IdeaEditorControllerTest {
         assertThat(controller.titleProperty().get()).isEmpty();
         assertThat(controller.tags()).isEmpty();
     }
-
-    // ---- tag entry -----------------------------------------------------------------
 
     @Test
     @DisplayName("addTag normalizes what the user typed")
@@ -441,8 +392,6 @@ class IdeaEditorControllerTest {
         assertThat(controller.tagsErrorProperty().get()).isEmpty();
     }
 
-    // ---- construction --------------------------------------------------------------
-
     @Test
     @DisplayName("a null service is rejected at construction")
     void rejectsNullService() {
@@ -457,5 +406,388 @@ class IdeaEditorControllerTest {
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> controller.removeTag(null))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    private BlockDraft firstBlock() {
+        return controller.blocks().get(0);
+    }
+
+    private BlockDraft addLink(String uri, String label) {
+        BlockDraft draft = controller.addBlock(BlockKind.LINK);
+        draft.uriProperty().set(uri);
+        draft.labelProperty().set(label);
+        return draft;
+    }
+
+    private BlockDraft addImage(String uri, String altText) {
+        BlockDraft draft = controller.addBlock(BlockKind.IMAGE);
+        draft.uriProperty().set(uri);
+        draft.altTextProperty().set(altText);
+        return draft;
+    }
+
+    @Test
+    @DisplayName("beginEdit lays the stored blocks out in the order they were stored")
+    void beginEditKeepsBlockOrder() {
+        Idea stored = IdeaFixtures.anIdea()
+                .withDescription(new Description(List.of(
+                        new TextBlock("First."),
+                        LinkBlock.of(URI.create("https://example.com/x")),
+                        new ImageBlock(URI.create("file:///C:/pics/a.png"), "A screenshot"))))
+                .build();
+
+        controller.beginEdit(stored);
+
+        assertThat(controller.blocks()).hasSize(3);
+        assertThat(controller.blocks().get(0).kind()).isEqualTo(BlockKind.TEXT);
+        assertThat(controller.blocks().get(1).kind()).isEqualTo(BlockKind.LINK);
+        assertThat(controller.blocks().get(2).kind()).isEqualTo(BlockKind.IMAGE);
+    }
+
+    @Test
+    @DisplayName("an idea saved with no description still opens on a row you can type into")
+    void beginEditSeedsARowForAnEmptyDescription() {
+        controller.beginEdit(IdeaFixtures.anIdea().withDescription(Description.empty()).build());
+
+        assertThat(controller.blocks()).hasSize(1);
+        assertThat(controller.blocks().get(0).kind()).isEqualTo(BlockKind.TEXT);
+        assertThat(controller.blocks().get(0).isBlank()).isTrue();
+    }
+
+    @Test
+    @DisplayName("beginEdit twice does not accumulate rows")
+    void beginEditTwiceDoesNotAccumulate() {
+        Idea stored = IdeaFixtures.anIdea().withText("Body").build();
+
+        controller.beginEdit(stored);
+        controller.beginEdit(stored);
+
+        assertThat(controller.blocks()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("beginEdit copies a link's label, so an unnamed link keeps showing its URL")
+    void beginEditCopiesTheLinkLabel() {
+        controller.beginEdit(IdeaFixtures.anIdea()
+                .withDescription(new Description(List.of(
+                        LinkBlock.of(URI.create("https://example.com/x")))))
+                .build());
+
+        assertThat(firstBlock().labelProperty().get()).isEqualTo("https://example.com/x");
+    }
+
+    @Test
+    @DisplayName("addBlock appends and hands the new row back")
+    void addBlockAppends() {
+        controller.beginCreate();
+
+        BlockDraft added = controller.addBlock(BlockKind.LINK);
+
+        assertThat(controller.blocks()).hasSize(2);
+        assertThat(controller.blocks().get(1)).isSameAs(added);
+        assertThat(added.kind()).isEqualTo(BlockKind.LINK);
+    }
+
+    @Test
+    @DisplayName("addBlock works on a controller that was never begun")
+    void addBlockWithoutBegin() {
+        BlockDraft added = controller.addBlock(BlockKind.TEXT);
+
+        assertThat(controller.blocks()).containsExactly(added);
+    }
+
+    @Test
+    @DisplayName("removeBlock drops that row and leaves the rest in order")
+    void removeBlockDropsOneRow() {
+        controller.beginCreate();
+        BlockDraft second = controller.addBlock(BlockKind.LINK);
+        BlockDraft third = controller.addBlock(BlockKind.IMAGE);
+
+        controller.removeBlock(second);
+
+        assertThat(controller.blocks()).hasSize(2);
+        assertThat(controller.blocks().get(1)).isSameAs(third);
+    }
+
+    @Test
+    @DisplayName("removing the only row is allowed — an idea may have no description")
+    void removingTheOnlyRowIsAllowed() {
+        controller.beginCreate();
+
+        controller.removeBlock(firstBlock());
+
+        assertThat(controller.blocks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("moving the first row up does nothing")
+    void movingTheFirstRowUpDoesNothing() {
+        controller.beginCreate();
+        BlockDraft second = controller.addBlock(BlockKind.LINK);
+        BlockDraft first = firstBlock();
+
+        controller.moveBlockUp(first);
+
+        assertThat(controller.blocks()).containsExactly(first, second);
+    }
+
+    @Test
+    @DisplayName("moving the last row down does nothing")
+    void movingTheLastRowDownDoesNothing() {
+        controller.beginCreate();
+        BlockDraft first = firstBlock();
+        BlockDraft second = controller.addBlock(BlockKind.LINK);
+
+        controller.moveBlockDown(second);
+
+        assertThat(controller.blocks()).containsExactly(first, second);
+    }
+
+    @Test
+    @DisplayName("up then down puts a row back where it started")
+    void upThenDownRestoresTheOrder() {
+        controller.beginCreate();
+        BlockDraft first = firstBlock();
+        BlockDraft second = controller.addBlock(BlockKind.LINK);
+        BlockDraft third = controller.addBlock(BlockKind.IMAGE);
+
+        controller.moveBlockUp(third);
+        controller.moveBlockDown(third);
+
+        assertThat(controller.blocks()).containsExactly(first, second, third);
+    }
+
+    @Test
+    @DisplayName("a text row saves one TextBlock, stripped")
+    void textRowSavesOneStrippedTextBlock() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        firstBlock().textProperty().set("  A cleaner approach.  ");
+
+        controller.save();
+
+        assertThat(savedIdea().description().blocks())
+                .containsExactly(new TextBlock("A cleaner approach."));
+    }
+
+    @Test
+    @DisplayName("text, link and image save as three blocks in row order")
+    void allThreeKindsSaveInRowOrder() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        firstBlock().textProperty().set("Body");
+        addLink("https://example.com/x", "The write-up");
+        addImage("file:///C:/pics/a.png", "A screenshot");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.SAVED);
+
+        assertThat(savedIdea().description().blocks()).containsExactly(
+                new TextBlock("Body"),
+                new LinkBlock(URI.create("https://example.com/x"), "The write-up"),
+                new ImageBlock(URI.create("file:///C:/pics/a.png"), "A screenshot"));
+    }
+
+    @Test
+    @DisplayName("a link with no label saves showing its own URL — LinkBlock's rule, not a copy of it")
+    void linkWithNoLabelSavesShowingItsUrl() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addLink("https://example.com/x", "");
+
+        controller.save();
+
+        assertThat(savedIdea().description().blocks())
+                .containsExactly(LinkBlock.of(URI.create("https://example.com/x")));
+    }
+
+    @Test
+    @DisplayName("an image row carries its alt text through to storage")
+    void imageRowCarriesAltText() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addImage("file:///C:/pics/a.png", "A screenshot");
+
+        controller.save();
+
+        assertThat(savedIdea().description().blocks())
+                .containsExactly(new ImageBlock(URI.create("file:///C:/pics/a.png"), "A screenshot"));
+    }
+
+    @Test
+    @DisplayName("every row blank saves an empty description, not a description of empty blocks")
+    void everyRowBlankSavesAnEmptyDescription() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        controller.addBlock(BlockKind.TEXT);
+        firstBlock().textProperty().set("   \n\t ");
+
+        controller.save();
+
+        assertThat(savedIdea().description().isEmpty()).isTrue();
+        assertThat(savedIdea().description().blocks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("open an idea, save it unchanged, and the block list comes back identical")
+    void editAndSaveRoundTripsTheBlocks() {
+        Description original = new Description(List.of(
+                new TextBlock("Body"),
+                new LinkBlock(URI.create("https://example.com/x"), "The write-up"),
+                new ImageBlock(URI.create("file:///C:/pics/a.png"), "A screenshot")));
+        Idea stored = store(IdeaFixtures.anIdea().withDescription(original).build());
+
+        controller.beginEdit(stored);
+        assertThat(controller.save()).isEqualTo(SaveResult.SAVED);
+
+        assertThat(savedIdea().description()).isEqualTo(original);
+    }
+
+    @Test
+    @DisplayName("a blank row between two filled ones is dropped, and the survivors keep their order")
+    void aBlankRowBetweenTwoFilledOnesIsDropped() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        firstBlock().textProperty().set("First");
+        controller.addBlock(BlockKind.TEXT);
+        BlockDraft third = controller.addBlock(BlockKind.TEXT);
+        third.textProperty().set("Third");
+
+        controller.save();
+
+        assertThat(savedIdea().description().blocks())
+                .containsExactly(new TextBlock("First"), new TextBlock("Third"));
+    }
+
+    @Test
+    @DisplayName("the prune is visible on screen: after a save the blank row is gone from blocks()")
+    void thePruneIsVisibleOnScreen() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        firstBlock().textProperty().set("First");
+        controller.addBlock(BlockKind.TEXT);
+
+        controller.save();
+
+        assertThat(controller.blocks()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a link row with a label but no address is refused, and nothing reaches the service")
+    void aLinkRowWithNoAddressIsRefused() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addLink("", "The write-up");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        assertThat(controller.descriptionErrorProperty().get())
+                .contains("link address is required");
+        assertThat(repository.saved()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the row number in a message counts surviving rows, so it matches what is on screen")
+    void theRowNumberMatchesTheScreen() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        controller.addBlock(BlockKind.TEXT);
+        firstBlock().textProperty().set("First");
+        addImage("", "A screenshot");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        assertThat(controller.descriptionErrorProperty().get()).startsWith("Block 2:");
+    }
+
+    @Test
+    @DisplayName("an address that is not a URI at all is caught here, not thrown")
+    void anUnparseableAddressIsReportedNotThrown() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addLink("ht tp://x", "The write-up");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        assertThat(controller.descriptionErrorProperty().get())
+                .contains("is not a valid address");
+        assertThat(repository.saved()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a parseable but relative address reaches the validator — the two error sources stay separate")
+    void aRelativeAddressIsTheValidatorsToRefuse() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addLink("example.com/x", "The write-up");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        assertThat(controller.descriptionErrorProperty().get())
+                .contains("must be absolute, including https:// or file://");
+        assertThat(controller.descriptionErrorProperty().get())
+                .doesNotContain("is not a valid address");
+    }
+
+    @Test
+    @DisplayName("a refused save consumes nothing — the rows are all still there to fix")
+    void aRefusedSaveConsumesNothing() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        firstBlock().textProperty().set("Body");
+        addLink("ht tp://x", "The write-up");
+
+        controller.save();
+
+        assertThat(controller.blocks()).hasSize(2);
+        assertThat(controller.blocks().get(0).textProperty().get()).isEqualTo("Body");
+        assertThat(controller.blocks().get(1).uriProperty().get()).isEqualTo("ht tp://x");
+    }
+
+    @Test
+    @DisplayName("a blank title and a bad address report on both fields at once")
+    void bothFieldsReportTogether() {
+        controller.beginCreate();
+        addLink("example.com/x", "The write-up");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        assertThat(controller.titleErrorProperty().get()).isNotEmpty();
+        assertThat(controller.descriptionErrorProperty().get()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("a successful retry clears the previous description message")
+    void aSuccessfulRetryClearsTheDescriptionMessage() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        BlockDraft link = addLink("ht tp://x", "The write-up");
+        assertThat(controller.save()).isEqualTo(SaveResult.INVALID);
+
+        link.uriProperty().set("https://example.com/x");
+
+        assertThat(controller.save()).isEqualTo(SaveResult.SAVED);
+        assertThat(controller.descriptionErrorProperty().get()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("beginCreate after a failed save clears the description message")
+    void beginCreateClearsTheDescriptionMessage() {
+        controller.beginCreate();
+        controller.titleProperty().set("An idea");
+        addLink("ht tp://x", "The write-up");
+        controller.save();
+
+        controller.beginCreate();
+
+        assertThat(controller.descriptionErrorProperty().get()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("addBlock, removeBlock and the two moves reject null")
+    void blockOperationsRejectNull() {
+        assertThatThrownBy(() -> controller.addBlock(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> controller.removeBlock(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> controller.moveBlockUp(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> controller.moveBlockDown(null)).isInstanceOf(NullPointerException.class);
     }
 }
