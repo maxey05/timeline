@@ -1,7 +1,3 @@
-/*
-* contains layout, spacing, and typography only, no colors.
-*/
-
 .root
 {
     -fx-font-family: "Segoe UI", "Inter", "Helvetica Neue", sans-serif;
@@ -23,8 +19,6 @@
     -fx-font-size: 15px;
 }
 
-/* ---- header ---- */
-
 .app-header
 {
     -fx-padding: 14px 18px;
@@ -44,8 +38,6 @@
     -fx-background-radius: 3px;
     -fx-cursor: hand;
 }
-
-/* ---- list ---- */
 
 .list-container
 {
@@ -105,8 +97,6 @@
     -fx-padding: 0 0 0 12px;
 }
 
-/* ---- empty state ---- */
-
 .empty-state
 {
     -fx-spacing: 6px;
@@ -122,8 +112,6 @@
 {
     -fx-font-size: 13px;
 }
-
-/* ---- editor dialog ---- */
 
 .editor-pane
 {
@@ -147,10 +135,6 @@
     -fx-border-width: 1px;
 }
 
-/*
-* Reserved space, always. The label is toggled invisible, never unmanaged (§6.3), so the form
-* never jumps when a message appears.
-*/
 .error-label
 {
     -fx-font-size: 12px;
@@ -197,8 +181,6 @@
     -fx-background-radius: 3px;
     -fx-cursor: hand;
 }
-
-/* ---- filter bar ---- */
 
 .filter-bar
 {
@@ -249,15 +231,6 @@
     -fx-vgap: 4px;
 }
 
-/*
-* Deliberately near-identical to .tag-chip in the list cell — a filter chip and a tag on a row must
-* read as the same object. It differs in being a control (hand cursor, hover) and in two extra
-* pixels of horizontal padding, which a ToggleButton needs to look the same size as a Label.
-*
-* -fx-background-insets: 0 is not optional: Modena paints .toggle-button as four stacked
-* backgrounds with staggered insets to fake a bevel, and flattening them is what removes the
-* shadow line no color rule can reach.
-*/
 .filter-chip
 {
     -fx-font-size: 11px;
@@ -269,8 +242,6 @@
     -fx-cursor: hand;
 }
 
-/* ---- no-matches state ---- */
-
 .no-matches
 {
     -fx-spacing: 12px;
@@ -280,4 +251,134 @@
 .no-matches-title
 {
     -fx-font-size: 15px;
+}
+
+.block-scroll
+{
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.block-list
+{
+    -fx-spacing: 10px;
+    -fx-padding: 2px 0 2px 0;
+}
+
+.block-row
+{
+    -fx-spacing: 8px;
+}
+
+.block-glyph
+{
+    -fx-font-size: 13px;
+    -fx-min-width: 18px;
+    -fx-padding: 5px 0 0 0;
+}
+
+.block-fields
+{
+    -fx-spacing: 4px;
+}
+
+.block-text-input
+{
+    -fx-pref-height: 64px;
+}
+
+.block-field
+{
+    -fx-padding: 4px 8px;
+}
+
+.block-controls
+{
+    -fx-spacing: 2px;
+}
+
+.block-button
+{
+    -fx-font-size: 12px;
+    -fx-padding: 2px 6px;
+    -fx-background-radius: 3px;
+    -fx-background-insets: 0;
+    -fx-cursor: hand;
+}
+
+.add-block-row
+{
+    -fx-spacing: 6px;
+    -fx-padding: 8px 0 0 0;
+}
+
+.detail-region
+{
+    -fx-padding: 0;
+}
+
+.detail-pane
+{
+    -fx-padding: 16px 18px;
+    -fx-spacing: 6px;
+}
+
+.detail-title
+{
+    -fx-font-size: 15px;
+    -fx-font-weight: 500;
+}
+
+.detail-meta
+{
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 4px 0;
+}
+
+.detail-scroll
+{
+    -fx-padding: 8px 0 0 0;
+    -fx-background-insets: 0;
+}
+
+.detail-blocks
+{
+    -fx-spacing: 10px;
+}
+
+.block-text
+{
+    -fx-font-size: 13px;
+}
+
+.block-link
+{
+    -fx-font-size: 13px;
+    -fx-padding: 0;
+    -fx-underline: true;
+    -fx-cursor: hand;
+}
+
+.block-image-holder
+{
+    -fx-padding: 2px 0;
+}
+
+.block-image-missing
+{
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+    -fx-padding: 10px 12px;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+}
+
+.detail-placeholder
+{
+    -fx-padding: 32px;
+}
+
+.detail-placeholder-label
+{
+    -fx-font-size: 13px;
 }

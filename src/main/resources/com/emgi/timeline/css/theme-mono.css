@@ -1,5 +1,3 @@
-/*colors only*/
-
 .root
 {
     -text-primary: #1a1a1a;
@@ -9,11 +7,6 @@
     -surface-selected: #f0f0f0;
     -separator: #ececec;
 
-    /*
-    * §6.2 forbids color as a hierarchy device, so an error reads as an error through its ⚠
-    * glyph and its position, not through red. The variable exists so a future theme can change
-    * that in one line without touching base.css.
-    */
     -text-error: #1a1a1a;
 
     -fx-background-color: -surface;
@@ -102,8 +95,6 @@
     -fx-text-fill: -text-primary;
 }
 
-/* ---- editor dialog ---- */
-
 .editor-pane
 {
     -fx-background-color: -surface;
@@ -126,10 +117,6 @@
     -fx-border-color: -text-secondary;
 }
 
-/*
-* TextArea's interior is a separate region: styling .text-input alone leaves the box right and
-* the inside Modena-default. (Same class of trap as .virtual-flow vs .viewport in Phase 3.)
-*/
 .text-input .content
 {
     -fx-background-color: -surface;
@@ -187,8 +174,6 @@
     -fx-text-fill: -text-primary;
 }
 
-/* ---- filter bar ---- */
-
 .filter-bar
 {
     -fx-background-color: -surface;
@@ -225,16 +210,11 @@
     -fx-text-fill: -text-primary;
 }
 
-/* The popup is a ContextMenu and already picks up the rules above; only the arrow is left. */
 .sort-choice .arrow
 {
     -fx-background-color: -text-secondary;
 }
 
-/*
-* §6.2: hierarchy by weight and fill, never by hue. A selected chip is the same shape in a darker
-* gray with a darker border — the same move the list cell makes for :selected.
-*/
 .filter-chip
 {
     -fx-background-color: -surface;
@@ -257,4 +237,84 @@
 .no-matches-title
 {
     -fx-text-fill: -text-primary;
+}
+
+.block-scroll,
+.block-scroll .viewport,
+.detail-scroll,
+.detail-scroll .viewport
+{
+    -fx-background-color: -surface;
+}
+
+.block-glyph
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.block-button
+{
+    -fx-background-color: -surface;
+    -fx-text-fill: -text-secondary;
+}
+
+.block-button:hover
+{
+    -fx-background-color: -surface-hover;
+    -fx-text-fill: -text-primary;
+}
+
+.block-button:disabled
+{
+    -fx-opacity: 0.35;
+}
+
+.detail-region
+{
+    -fx-background-color: -surface;
+    -fx-border-color: transparent transparent transparent -separator;
+    -fx-border-width: 0 0 0 1px;
+}
+
+.detail-pane,
+.detail-placeholder
+{
+    -fx-background-color: -surface;
+}
+
+.detail-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.detail-meta,
+.detail-placeholder-label,
+.block-image-missing
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.block-text
+{
+    -fx-text-fill: -text-primary;
+}
+
+.block-link,
+.block-link:visited,
+.block-link:hover,
+.block-link:focused
+{
+    -fx-text-fill: -text-primary;
+    -fx-border-color: transparent;
+}
+
+.block-link:hover
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.block-image-missing
+{
+    -fx-border-color: -separator;
+    -fx-background-color: -surface-hover;
 }
