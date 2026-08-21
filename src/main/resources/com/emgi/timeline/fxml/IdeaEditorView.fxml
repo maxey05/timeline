@@ -2,7 +2,7 @@
 
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
@@ -27,8 +27,18 @@
     <HBox fx:id="statusBox" styleClass="status-row"/>
 
     <Label styleClass="field-label" text="Description"/>
-    <TextArea fx:id="descriptionArea" styleClass="text-input" wrapText="true"
-              VBox.vgrow="ALWAYS"/>
+
+    <ScrollPane fx:id="blockScroll" styleClass="block-scroll"
+                fitToWidth="true" VBox.vgrow="ALWAYS">
+        <VBox fx:id="blockList" styleClass="block-list"/>
+    </ScrollPane>
+
+    <HBox styleClass="add-block-row">
+        <Button fx:id="addTextButton" styleClass="secondary-button" text="+ Text"/>
+        <Button fx:id="addLinkButton" styleClass="secondary-button" text="+ Link"/>
+        <Button fx:id="addImageButton" styleClass="secondary-button" text="+ Image"/>
+    </HBox>
+
     <Label fx:id="descriptionErrorLabel" styleClass="error-label"/>
 
     <HBox styleClass="dialog-buttons">
