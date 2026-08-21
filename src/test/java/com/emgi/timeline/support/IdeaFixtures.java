@@ -13,14 +13,6 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Test data builders. Every test builds its ideas through here rather than calling the
- * seven-argument constructor, so adding a field to {@code Idea} later is a one-file change instead
- * of a hundred-line diff.
- *
- * <p>Defaults are deliberately boring: a valid idea that no assertion depends on unless the test
- * sets the field it cares about.
- */
 public final class IdeaFixtures {
 
     public static final Instant T0 = FixedClock.DEFAULT_INSTANT;
@@ -32,7 +24,6 @@ public final class IdeaFixtures {
         return new Builder();
     }
 
-    /** Shorthand for the very common "an idea with this title" case. */
     public static Idea ideaTitled(String title) {
         return anIdea().withTitle(title).build();
     }
@@ -68,7 +59,6 @@ public final class IdeaFixtures {
             return this;
         }
 
-        /** Convenience for the sequential ids {@code SequentialIdGenerator} produces. */
         public Builder withIdNumber(long n) {
             return withId(SequentialIdGenerator.idFor(n));
         }

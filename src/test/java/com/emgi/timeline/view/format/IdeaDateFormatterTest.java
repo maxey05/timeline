@@ -101,7 +101,6 @@ class IdeaDateFormatterTest {
     void absoluteDatesUseTheClockZone() {
         Clock taipei = FixedClock.at(NOW).withZone(ZoneId.of("Asia/Taipei"));
 
-        // 16:30Z on 3 August is already the 4th in Taipei.
         Instant instant = Instant.parse("2026-08-03T16:30:00Z");
 
         assertThat(new IdeaDateFormatter(taipei).format(instant)).isEqualTo("Aug 4");
