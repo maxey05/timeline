@@ -26,6 +26,8 @@ public final class BlockEditorFactory
 
     private static final int TEXT_ROWS = 3;
 
+    public record BlockRow(BlockDraft draft, Node node, Node focusTarget) { }
+
     private final IdeaEditorController controller;
 
     public BlockEditorFactory(IdeaEditorController controller)
@@ -33,23 +35,27 @@ public final class BlockEditorFactory
         this.controller = Objects.requireNonNull(controller, "controller");
     }
 
-    public Node create(BlockDraft draft, boolean first, boolean last)
+    public BlockRow create(BlockDraft draft, boolean first, boolean last)
     {
         Objects.requireNonNull(draft, "draft");
 
         Label glyph = new Label(glyphFor(draft.kind()));
         glyph.getStyleClass().add("block-glyph");
 
+        List<Node> inputs = fieldsFor(draft);
+
         VBox fields = new VBox();
         fields.getStyleClass().add("block-fields");
-        fields.getChildren().setAll(fieldsFor(draft));
+        fields.getChildren().setAll(inputs);
         HBox.setHgrow(fields, Priority.ALWAYS);
 
         HBox row = new HBox(glyph, fields, controlsFor(draft, first, last));
         row.getStyleClass().add("block-row");
         row.setAlignment(Pos.TOP_LEFT);
 
-        return row;
+        row.setUserData(draft);
+
+        return new BlockRow(draft, row, inputs.get(0));
     }
 
     private List<Node> fieldsFor(BlockDraft draft)
@@ -89,11 +95,11 @@ public final class BlockEditorFactory
 
     private Node controlsFor(BlockDraft draft, boolean first, boolean last)
     {
-        Button up = iconButton("\u2191", "Move up");
+        Button up = iconButton("\u2191", "Move block up  (Alt+Up)");
         up.setDisable(first);
         up.setOnAction(event -> controller.moveBlockUp(draft));
 
-        Button down = iconButton("\u2193", "Move down");
+        Button down = iconButton("\u2193", "Move block down  (Alt+Down)");
         down.setDisable(last);
         down.setOnAction(event -> controller.moveBlockDown(draft));
 
@@ -111,6 +117,9 @@ public final class BlockEditorFactory
         Button button = new Button(glyph);
         button.getStyleClass().add("block-button");
         button.setTooltip(new Tooltip(tooltip));
+
+        button.setAccessibleText(tooltip);
+
         return button;
     }
 
