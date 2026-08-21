@@ -13,7 +13,7 @@ class InMemoryIdeaRepositoryTest extends IdeaRepositoryContractTest
     protected IdeaRepository createRepository()
     {
         return new InMemoryIdeaRepository();
-    } 
+    }
 
     @Test
     @DisplayName("two instances do not share a state")

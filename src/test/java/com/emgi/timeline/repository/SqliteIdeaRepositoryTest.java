@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 @DisplayName("SqliteIdeaRepository (contract + persistence)")
-class SqliteIdeaRepositoryTest extends IdeaRepositoryContractTest 
+class SqliteIdeaRepositoryTest extends IdeaRepositoryContractTest
 {
     @TempDir
     Path tempDir;
