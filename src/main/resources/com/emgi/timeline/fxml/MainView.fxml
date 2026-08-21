@@ -4,6 +4,7 @@
 <?import javafx.scene.control.ChoiceBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
@@ -58,4 +59,28 @@
             </VBox>
         </StackPane>
     </center>
+
+    <right>
+        <StackPane fx:id="detailRegion" styleClass="detail-region"
+                   prefWidth="320" minWidth="320" maxWidth="320">
+
+            <VBox fx:id="detailPlaceholder" styleClass="detail-placeholder" alignment="CENTER">
+                <Label styleClass="detail-placeholder-label" text="Select an idea"/>
+            </VBox>
+
+            <VBox fx:id="detailPane" styleClass="detail-pane">
+                <Label fx:id="detailTitle" styleClass="detail-title" wrapText="true"/>
+                <Label fx:id="detailMeta" styleClass="detail-meta"/>
+                <FlowPane fx:id="detailTags" styleClass="idea-tags"/>
+
+                <ScrollPane fx:id="detailScroll" styleClass="detail-scroll"
+                            fitToWidth="true" VBox.vgrow="ALWAYS">
+                    <VBox fx:id="detailBlocks" styleClass="detail-blocks"/>
+                </ScrollPane>
+
+                <Button fx:id="detailEditButton" styleClass="secondary-button" text="Edit…"/>
+            </VBox>
+        </StackPane>
+    </right>
+
 </BorderPane>
