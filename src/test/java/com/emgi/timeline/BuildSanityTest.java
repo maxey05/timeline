@@ -3,7 +3,7 @@ package com.emgi.timeline;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class BuildSanityTest 
+public class BuildSanityTest
 {
     @Test
     void runsOnJava21OrLater()
