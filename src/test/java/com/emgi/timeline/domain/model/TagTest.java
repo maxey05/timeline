@@ -72,8 +72,6 @@ class TagTest {
     @Test
     @DisplayName("tags differing only by case are the same tag and collapse in a Set")
     void tagsDifferingOnlyByCaseCollapse() {
-        // HashSet, not Set.of — Set.of throws on duplicates instead of collapsing them,
-        // which would mask the very behaviour under test.
         Set<Tag> tags = new HashSet<>(List.of(Tag.of("Java"), Tag.of("java"), Tag.of(" JAVA ")));
         assertThat(tags).hasSize(1);
         assertThat(Tag.of("Java")).isEqualTo(Tag.of("java"));

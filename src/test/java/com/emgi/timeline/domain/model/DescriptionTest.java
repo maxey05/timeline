@@ -36,7 +36,7 @@ class DescriptionTest {
         source.add(new TextBlock("one"));
         Description description = new Description(source);
 
-        source.add(new TextBlock("two")); // must not affect the description
+        source.add(new TextBlock("two"));
 
         assertThat(description.blocks()).hasSize(1);
         assertThatThrownBy(() -> description.blocks().add(new TextBlock("three")))
@@ -47,8 +47,6 @@ class DescriptionTest {
     void rejectsNullBlocks() {
         assertThatThrownBy(() -> new Description(null)).isInstanceOf(NullPointerException.class);
     }
-
-    // --- plainTextPreview -------------------------------------------------------------------
 
     @Test
     void previewOfAnEmptyDescriptionIsEmpty() {
@@ -114,7 +112,6 @@ class DescriptionTest {
     @Test
     @DisplayName("truncation never splits an emoji in half")
     void previewDoesNotSplitSurrogatePairs() {
-        // "🚀" is two chars (a surrogate pair); cutting between them would corrupt it.
         Description description = Description.ofText("ab🚀cd");
 
         String preview = description.plainTextPreview(4);

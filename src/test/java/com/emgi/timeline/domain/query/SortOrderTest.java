@@ -47,7 +47,6 @@ class SortOrderTest {
         List<Idea> oldestFirst = new ArrayList<>(List.of(second, first));
         oldestFirst.sort(SortOrder.OLDEST_FIRST.comparator());
 
-        // The id tiebreak is ascending in both directions — it does not flip with the sort order.
         assertThat(newestFirst).containsExactly(first, second);
         assertThat(oldestFirst).containsExactly(first, second);
     }

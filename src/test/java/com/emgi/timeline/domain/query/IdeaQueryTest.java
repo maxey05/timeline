@@ -40,8 +40,6 @@ class IdeaQueryTest {
         assertThat(query.sortOrder()).isEqualTo(SortOrder.NEWEST_FIRST);
     }
 
-    // --- title -----------------------------------------------------------------------------
-
     @Test
     void filtersByTitleSubstring() {
         assertThat(matching(IdeaQuery.all().withTitleContains("Cook"))).containsExactly(cookingIdea);
@@ -62,7 +60,6 @@ class IdeaQueryTest {
 
         assertThat(predicate.test(regexish)).isTrue();
         assertThat(predicate.test(javaIdea)).isFalse();
-        // ".*" would match everything if this were a regex
         assertThat(IdeaQuery.all().withTitleContains(".*").toPredicate().test(regexish)).isFalse();
     }
 
@@ -78,8 +75,6 @@ class IdeaQueryTest {
     void searchTermIsTrimmed() {
         assertThat(IdeaQuery.all().withTitleContains("  Cook  ").titleContains()).contains("Cook");
     }
-
-    // --- tags ------------------------------------------------------------------------------
 
     @Test
     void filtersByASingleTag() {
@@ -104,8 +99,6 @@ class IdeaQueryTest {
         assertThat(matching(IdeaQuery.all().withTags(tags("nonexistent")))).isEmpty();
     }
 
-    // --- status ----------------------------------------------------------------------------
-
     @Test
     void filtersByStatus() {
         assertThat(matching(IdeaQuery.all().withStatuses(Set.of(IdeaStatus.COMPLETED))))
@@ -118,8 +111,6 @@ class IdeaQueryTest {
                 .withStatuses(Set.of(IdeaStatus.COMPLETED, IdeaStatus.INCOMPLETE))))
                 .containsExactly(cookingIdea, doneIdea);
     }
-
-    // --- combinations ----------------------------------------------------------------------
 
     @Test
     @DisplayName("dimensions combine with AND — every filter must pass")

@@ -11,13 +11,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Enforces the one architectural rule that a rushed edit is most likely to break:
- * {@code domain/} depends on no framework — not JavaFX, not JDBC (ARCHITECTURE.md §2, §3).
- *
- * <p>Deliberately a source scan rather than an ArchUnit dependency: the project takes no libraries
- * it doesn't need, and reading import lines is enough to catch the mistake this guards against.
- */
 class DomainPurityTest {
 
     private static final Path DOMAIN_SOURCES = Path.of("src/main/java/com/emgi/timeline/domain");
@@ -34,7 +27,6 @@ class DomainPurityTest {
     @Test
     @DisplayName("the domain source directory is where this test expects it")
     void domainSourcesAreFound() throws IOException {
-        // Without this, a wrong working directory would make the scan below silently pass.
         assertThat(Files.isDirectory(DOMAIN_SOURCES))
                 .as("expected domain sources at %s (working dir: %s)",
                         DOMAIN_SOURCES, Path.of("").toAbsolutePath())
