@@ -51,73 +51,73 @@ public final class SqliteIdeaRepository implements IdeaRepository
     private final SqliteConnectionSource connectionSource;
     private final IdeaRowMapper rowMapper;
 
-    public SqliteIdeaRepository(SqliteConnectionSource connectionSource, IdeaRowMapper rowMapper) 
+    public SqliteIdeaRepository(SqliteConnectionSource connectionSource, IdeaRowMapper rowMapper)
     {
         this.connectionSource = Objects.requireNonNull(connectionSource, "connectionSource");
         this.rowMapper = Objects.requireNonNull(rowMapper, "rowMapper");
     }
 
-    public SqliteIdeaRepository(SqliteConnectionSource connectionSource) 
+    public SqliteIdeaRepository(SqliteConnectionSource connectionSource)
     {
         this(connectionSource, new IdeaRowMapper());
     }
 
     @Override
-    public void save(Idea idea) 
+    public void save(Idea idea)
     {
         Objects.requireNonNull(idea, "idea");
         Connection connection = connectionSource.connection();
         boolean autoCommitBefore;
-        try 
+        try
         {
             autoCommitBefore = connection.getAutoCommit();
             connection.setAutoCommit(false);
-        } 
-        catch (SQLException e) 
+        }
+        catch (SQLException e)
         {
             throw new StorageException("Could not begin a transaction for idea " + idea.id(), e);
         }
-        try 
+        try
         {
             writeIdeaRow(connection, idea);
             replaceTags(connection, idea);
             replaceBlocks(connection, idea);
             connection.commit();
-        } 
-        catch (SQLException e) 
+        }
+        catch (SQLException e)
         {
             rollback(connection, idea.id(), e);
             throw new StorageException("Could not save idea " + idea.id(), e);
-        } 
-        finally 
+        }
+        finally
         {
             restoreAutoCommit(connection, autoCommitBefore);
         }
     }
 
-    private void writeIdeaRow(Connection connection, Idea idea) throws SQLException 
+    private void writeIdeaRow(Connection connection, Idea idea) throws SQLException
     {
-        try (PreparedStatement statement = connection.prepareStatement(UPSERT_IDEA)) 
+        try (PreparedStatement statement = connection.prepareStatement(UPSERT_IDEA))
         {
             rowMapper.bindIdea(statement, idea);
             statement.executeUpdate();
         }
     }
 
-    private void replaceTags(Connection connection, Idea idea) throws SQLException 
+    private void replaceTags(Connection connection, Idea idea) throws SQLException
     {
-        try (PreparedStatement delete = connection.prepareStatement(DELETE_TAGS)) 
+        try (PreparedStatement delete = connection.prepareStatement(DELETE_TAGS))
         {
             delete.setString(1, idea.id().toString());
             delete.executeUpdate();
         }
-        if (idea.tags().isEmpty()) 
+        if (idea.tags().isEmpty())
             {
             return;
         }
-        try (PreparedStatement insert = connection.prepareStatement(INSERT_TAG)) 
+        try (PreparedStatement insert = connection.prepareStatement(INSERT_TAG))
         {
-            for (Tag tag : idea.tags()) 
+            for (Tag tag : idea.tags())
             {
                 insert.setString(1, idea.id().toString());
                 insert.setString(2, tag.name());
@@ -127,21 +127,21 @@ public final class SqliteIdeaRepository implements IdeaRepository
         }
     }
 
-    private void replaceBlocks(Connection connection, Idea idea) throws SQLException 
+    private void replaceBlocks(Connection connection, Idea idea) throws SQLException
     {
-        try (PreparedStatement delete = connection.prepareStatement(DELETE_BLOCKS)) 
+        try (PreparedStatement delete = connection.prepareStatement(DELETE_BLOCKS))
         {
             delete.setString(1, idea.id().toString());
             delete.executeUpdate();
         }
         List<ContentBlock> blocks = idea.description().blocks();
-        if (blocks.isEmpty()) 
+        if (blocks.isEmpty())
             {
             return;
         }
-        try (PreparedStatement insert = connection.prepareStatement(INSERT_BLOCK)) 
+        try (PreparedStatement insert = connection.prepareStatement(INSERT_BLOCK))
         {
-            for (int position = 0; position < blocks.size(); position++) 
+            for (int position = 0; position < blocks.size(); position++)
             {
                 rowMapper.bindBlock(insert, idea.id(), position, blocks.get(position));
                 insert.addBatch();
@@ -150,61 +150,61 @@ public final class SqliteIdeaRepository implements IdeaRepository
         }
     }
 
-    private static void rollback(Connection connection, IdeaId id, SQLException cause) 
+    private static void rollback(Connection connection, IdeaId id, SQLException cause)
     {
-        try 
+        try
         {
             connection.rollback();
-        } 
-        catch (SQLException rollbackFailure) 
+        }
+        catch (SQLException rollbackFailure)
         {
             cause.addSuppressed(rollbackFailure);
         }
     }
 
-    private static void restoreAutoCommit(Connection connection, boolean autoCommitBefore) 
+    private static void restoreAutoCommit(Connection connection, boolean autoCommitBefore)
     {
-        try 
+        try
         {
             connection.setAutoCommit(autoCommitBefore);
-        } 
-        catch (SQLException e) 
+        }
+        catch (SQLException e)
         {
             throw new StorageException("Could not restore auto-commit on the database connection", e);
         }
     }
 
     @Override
-    public Optional<Idea> findById(IdeaId id) 
+    public Optional<Idea> findById(IdeaId id)
     {
         Objects.requireNonNull(id, "id");
         Connection connection = connectionSource.connection();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_IDEA)) 
+        try (PreparedStatement statement = connection.prepareStatement(SELECT_IDEA))
         {
             statement.setString(1, id.toString());
-            try (ResultSet rows = statement.executeQuery()) 
+            try (ResultSet rows = statement.executeQuery())
             {
                 if (!rows.next()) {
                     return Optional.empty();
                 }
                 return Optional.of(rowMapper.toIdea(rows, tagsOf(connection, id), blocksOf(connection, id)));
             }
-        } 
-        catch (SQLException e) 
+        }
+        catch (SQLException e)
         {
             throw new StorageException("Could not load idea " + id, e);
         }
     }
 
-    private Set<Tag> tagsOf(Connection connection, IdeaId id) throws SQLException 
+    private Set<Tag> tagsOf(Connection connection, IdeaId id) throws SQLException
     {
         Set<Tag> tags = new LinkedHashSet<>();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_TAGS)) 
+        try (PreparedStatement statement = connection.prepareStatement(SELECT_TAGS))
         {
             statement.setString(1, id.toString());
-            try (ResultSet rows = statement.executeQuery()) 
+            try (ResultSet rows = statement.executeQuery())
             {
-                while (rows.next()) 
+                while (rows.next())
                 {
                     tags.add(rowMapper.toTag(rows));
                 }
@@ -213,15 +213,15 @@ public final class SqliteIdeaRepository implements IdeaRepository
         return tags;
     }
 
-    private List<ContentBlock> blocksOf(Connection connection, IdeaId id) throws SQLException 
+    private List<ContentBlock> blocksOf(Connection connection, IdeaId id) throws SQLException
     {
         List<ContentBlock> blocks = new ArrayList<>();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_BLOCKS)) 
+        try (PreparedStatement statement = connection.prepareStatement(SELECT_BLOCKS))
         {
             statement.setString(1, id.toString());
-            try (ResultSet rows = statement.executeQuery()) 
+            try (ResultSet rows = statement.executeQuery())
             {
-                while (rows.next()) 
+                while (rows.next())
                 {
                     blocks.add(rowMapper.toBlock(rows));
                 }
@@ -231,7 +231,7 @@ public final class SqliteIdeaRepository implements IdeaRepository
     }
 
     @Override
-    public List<Idea> findAll() 
+    public List<Idea> findAll()
     {
         Connection connection = connectionSource.connection();
         try {

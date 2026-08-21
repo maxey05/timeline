@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class IdeaService 
+public final class IdeaService
 {
     private final IdeaRepository repository;
     private final IdeaValidator validator;

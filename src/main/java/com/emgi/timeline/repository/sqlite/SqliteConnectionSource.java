@@ -94,15 +94,15 @@ public final class SqliteConnectionSource implements AutoCloseable
         if (connection == null) {
             return;
         }
-        try 
+        try
         {
             connection.close();
-        } 
-        catch (SQLException e) 
+        }
+        catch (SQLException e)
         {
             throw new StorageException("Could not close the Timeline database at " + url, e);
-        } 
-        finally 
+        }
+        finally
         {
             connection = null;
         }

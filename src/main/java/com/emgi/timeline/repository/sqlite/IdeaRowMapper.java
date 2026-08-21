@@ -21,13 +21,13 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Set;
 
-public final class IdeaRowMapper 
+public final class IdeaRowMapper
 {
     public static final String TYPE_TEXT = "TEXT";
     public static final String TYPE_LINK = "LINK";
     public static final String TYPE_IMAGE = "IMAGE";
 
-    public Idea toIdea(ResultSet row, Set<Tag> tags, List<ContentBlock> blocks) throws SQLException 
+    public Idea toIdea(ResultSet row, Set<Tag> tags, List<ContentBlock> blocks) throws SQLException
     {
         String id = row.getString("id");
         return new Idea(
@@ -40,12 +40,12 @@ public final class IdeaRowMapper
                 toInstant(row.getString("updated_at"), "updated_at", id));
     }
 
-    public Tag toTag(ResultSet row) throws SQLException 
+    public Tag toTag(ResultSet row) throws SQLException
     {
         return Tag.of(row.getString("tag_name"));
     }
 
-    public ContentBlock toBlock(ResultSet row) throws SQLException 
+    public ContentBlock toBlock(ResultSet row) throws SQLException
     {
         String type = row.getString("type");
         return switch (type) {
@@ -56,7 +56,7 @@ public final class IdeaRowMapper
         };
     }
 
-    public void bindIdea(PreparedStatement statement, Idea idea) throws SQLException 
+    public void bindIdea(PreparedStatement statement, Idea idea) throws SQLException
     {
         statement.setString(1, idea.id().toString());
         statement.setString(2, idea.title());
@@ -94,44 +94,44 @@ public final class IdeaRowMapper
         }
     }
 
-    private static IdeaStatus toStatus(String raw, String ideaId) 
+    private static IdeaStatus toStatus(String raw, String ideaId)
     {
-        try 
+        try
         {
             return IdeaStatus.valueOf(raw);
-        } 
-        catch (IllegalArgumentException | NullPointerException e) 
+        }
+        catch (IllegalArgumentException | NullPointerException e)
         {
             throw new StorageException("Idea " + ideaId + " has an unknown status: " + raw, e);
         }
     }
 
-    private static Instant toInstant(String raw, String column, String ideaId) 
+    private static Instant toInstant(String raw, String column, String ideaId)
     {
-        try 
+        try
         {
             return Instant.parse(raw);
-        } 
-        catch (DateTimeParseException | NullPointerException e) 
+        }
+        catch (DateTimeParseException | NullPointerException e)
         {
             throw new StorageException(
                     "Idea " + ideaId + " has an unreadable " + column + ": " + raw, e);
         }
     }
 
-    private static URI toUri(String raw, String type) 
+    private static URI toUri(String raw, String type)
     {
-        try 
+        try
         {
             return new URI(nonNull(raw, "uri", type));
-        } 
-        catch (URISyntaxException e) 
+        }
+        catch (URISyntaxException e)
         {
             throw new StorageException("Stored " + type + " block has an unreadable uri: " + raw, e);
         }
     }
 
-    private static String nonNull(String value, String column, String type) 
+    private static String nonNull(String value, String column, String type)
     {
         if (value == null) {
             throw new StorageException("Stored " + type + " block is missing its " + column + " column");

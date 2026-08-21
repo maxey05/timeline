@@ -5,7 +5,7 @@ import com.emgi.timeline.domain.model.IdeaId;
 import java.util.List;
 import java.util.Optional;
 
-public interface IdeaRepository 
+public interface IdeaRepository
 {
     void save(Idea idea);
 

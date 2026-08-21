@@ -4,7 +4,7 @@ import com.emgi.timeline.repository.sqlite.SchemaInitializer;
 import com.emgi.timeline.repository.sqlite.SqliteConnectionSource;
 import java.nio.file.Path;
 
-public final class SqliteTestDatabase 
+public final class SqliteTestDatabase
 {
     private SqliteTestDatabase()
     {}

@@ -10,9 +10,9 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;   
+import java.util.Objects;
 
-public final class SchemaInitializer 
+public final class SchemaInitializer
 {
     public static final String SCHEMA_RESOURCE = "/com/emgi/timeline/db/schema.sql";
 

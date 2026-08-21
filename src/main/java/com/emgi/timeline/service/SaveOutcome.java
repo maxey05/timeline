@@ -5,11 +5,11 @@ import com.emgi.timeline.domain.model.IdeaId;
 import com.emgi.timeline.domain.validation.ValidationResult;
 import java.util.Objects;
 
-public sealed interface SaveOutcome 
+public sealed interface SaveOutcome
 {
     record Saved(Idea idea) implements SaveOutcome
     {
-        public Saved 
+        public Saved
         {
             Objects.requireNonNull(idea, "idea");
         }
