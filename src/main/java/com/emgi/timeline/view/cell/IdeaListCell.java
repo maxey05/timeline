@@ -26,6 +26,9 @@ public final class IdeaListCell extends ListCell<Idea>
 {
     public static final int PREVIEW_CHARS = 120;
 
+    /** What the preview line says for an idea whose description is nothing but pictures. */
+    public static final String IMAGES_ONLY_PREVIEW = "Attached images";
+
     private final IdeaDateFormatter dateFormatter;
     private final ContextMenu contextMenu;
 
@@ -101,6 +104,17 @@ public final class IdeaListCell extends ListCell<Idea>
         dateLabel.setText(dateFormatter.format(idea.createdAt()));
 
         String preview = idea.description().plainTextPreview(PREVIEW_CHARS);
+
+        /*
+         * A description made only of images previews as nothing, because the preview drops
+         * image tokens rather than showing a file name nobody can read anything from. Saying
+         * so is better than a row that looks like it has no description at all.
+         */
+        if(preview.isEmpty() && idea.description().hasOnlyImages())
+        {
+            preview = IMAGES_ONLY_PREVIEW;
+        }
+
         previewLabel.setText(preview);
         previewLabel.setVisible(!preview.isEmpty());
         previewLabel.setManaged(!preview.isEmpty());
