@@ -150,15 +150,18 @@
 
 .editor-pane
 {
-    -fx-padding: 20px 22px;
+    -fx-padding: 18px 20px;
     -fx-spacing: 4px;
+    -fx-background-radius: 3px;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
 }
 
 .field-label
 {
     -fx-font-size: 12px;
     -fx-font-weight: 500;
-    -fx-padding: 10px 0 2px 0;
+    -fx-padding: 8px 0 2px 0;
 }
 
 .text-input
@@ -168,6 +171,12 @@
     -fx-background-radius: 3px;
     -fx-border-radius: 3px;
     -fx-border-width: 1px;
+}
+
+.title-input
+{
+    -fx-font-size: 19px;
+    -fx-padding: 10px 12px;
 }
 
 .error-label
@@ -318,70 +327,74 @@
     -fx-font-size: 15px;
 }
 
-.block-scroll
+.description-stack
 {
-    -fx-padding: 0;
-    -fx-background-insets: 0;
-}
-
-.block-list
-{
-    -fx-spacing: 10px;
     -fx-padding: 2px 0 2px 0;
 }
 
-.block-row
+/*
+ * The writing surface. Unlike the TextArea it replaced, the box the user sees is the AREA
+ * itself and not a scroll pane around it -- the VirtualizedScrollPane is a transparent
+ * shell that only supplies scrollbars, which then float over the area's own rounded edge
+ * exactly as the TextArea's did. Keeping the paint on the area is also what lets :focused
+ * light the border, since the area is what takes focus, not the shell.
+ */
+.description-scroll
 {
-    -fx-spacing: 8px;
+    -fx-pref-height: 220px;
+    -fx-min-height: 80px;
 }
 
-.block-glyph
+.description-area
+{
+    -fx-padding: 12px 14px;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+}
+
+/*
+ * RichTextFX draws each run of words as a TextExt carrying the .text class, so type size
+ * belongs there and not on the area -- a font size set on the area styles nothing, because
+ * the area itself never draws any glyphs.
+ */
+.description-area .text
 {
     -fx-font-size: 13px;
-    -fx-min-width: 18px;
-    -fx-padding: 5px 0 0 0;
 }
 
-.block-fields
+/*
+ * A picture is one character in the document, so its paragraph is centred rather than the
+ * node -- see DescriptionArea.applyParagraphStyle. This padding is the air around it.
+ */
+.description-area .description-image
 {
-    -fx-spacing: 4px;
+    -fx-padding: 6px 0;
 }
 
-.block-text-input
+/*
+ * The insert-image button floats over the bottom-right corner of the text box. Its
+ * offset from that corner is the StackPane margin in the FXML, not padding here --
+ * padding would only grow the button inward and leave it sitting on the scrollbar.
+ */
+.insert-image-button
 {
-    -fx-pref-height: 64px;
-}
-
-.block-field
-{
-    -fx-padding: 4px 8px;
-}
-
-.block-controls
-{
-    -fx-spacing: 2px;
-}
-
-.block-button
-{
-    -fx-font-size: 12px;
-    -fx-padding: 2px 6px;
-    -fx-background-radius: 3px;
+    -fx-font-size: 15px;
+    -fx-min-width: 26px;
+    -fx-min-height: 26px;
+    -fx-max-width: 26px;
+    -fx-max-height: 26px;
+    -fx-padding: 0;
+    -fx-background-radius: 13px;
     -fx-background-insets: 0;
     -fx-cursor: hand;
-}
-
-.add-block-row
-{
-    -fx-spacing: 6px;
-    -fx-padding: 8px 0 0 0;
 }
 
 
 
 .detail-title
 {
-    -fx-font-size: 15px;
+    -fx-font-size: 19px;
     -fx-font-weight: 500;
 }
 
@@ -395,19 +408,45 @@
 {
     -fx-padding: 8px 0 0 0;
     -fx-background-insets: 0;
+    -fx-border-width: 1px 0 0 0;
 }
 
-.detail-blocks
+/*
+ * The description well. It styles the ScrollPane's CONTENT, not the ScrollPane, so it
+ * hugs the description and leaves -canvas below a short idea; a long one scrolls as a
+ * whole. DescriptionRenderer.renderAll builds its own .description-body VBox inside this
+ * node, and that nested column is what carries the paragraph spacing -- which is why this
+ * one does not. (Styling both would draw two nested wells.)
+ */
+.description-well
+{
+    -fx-padding: 12px 14px;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+}
+
+.description-body
 {
     -fx-spacing: 10px;
 }
 
-.block-text
+.description-paragraph
+{
+    -fx-line-spacing: 2px;
+}
+
+.description-text
 {
     -fx-font-size: 13px;
 }
 
-.block-link
+/*
+ * A Hyperlink sitting inside a TextFlow rather than a column of its own, so it must not
+ * carry the padding a standalone control would -- any here would push the link off the
+ * text baseline mid-sentence.
+ */
+.description-link
 {
     -fx-font-size: 13px;
     -fx-padding: 0;
@@ -415,12 +454,12 @@
     -fx-cursor: hand;
 }
 
-.block-image-holder
+.description-image
 {
     -fx-padding: 2px 0;
 }
 
-.block-image-missing
+.description-image-missing
 {
     -fx-font-size: 12px;
     -fx-font-style: italic;
@@ -440,9 +479,51 @@
     -fx-padding: 0;
 }
 
-.detail-overlay
+.detail-overlay,
+.editor-overlay
 {
     -fx-padding: 0;
+}
+
+/*
+ * The first-launch name prompt. Deliberately the same shell as .detail-panel below — it is
+ * the same kind of object — but sized by its one field instead of by the window, which is
+ * what makes it the small one of the three.
+ */
+.name-prompt-overlay
+{
+    -fx-padding: 0;
+}
+
+.name-prompt-panel
+{
+    -fx-padding: 18px 20px;
+    -fx-spacing: 8px;
+    -fx-background-radius: 3px;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+}
+
+.name-prompt-title
+{
+    -fx-font-size: 19px;
+    -fx-font-weight: 500;
+}
+
+/*
+ * The same scale as .title-input, and not shared with it on purpose: the two happen to agree
+ * today, but a change to how an idea's title reads should not silently resize this.
+ */
+.name-input
+{
+    -fx-font-size: 19px;
+    -fx-padding: 10px 12px;
+}
+
+.name-prompt-footer
+{
+    -fx-spacing: 8px;
+    -fx-padding: 6px 0 0 0;
 }
 
 .detail-panel
