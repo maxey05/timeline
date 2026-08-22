@@ -14,12 +14,6 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.shape.SVGPath?>
 
-<!--
-    The root is a StackPane so the detail panel can be laid over the whole window:
-    the scrim dims everything the BorderPane draws, and the panel floats above it.
-    The BorderPane below is the application proper and is unchanged apart from
-    having lost its <right> detail region.
--->
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.emgi.timeline.view.MainView"
@@ -29,19 +23,42 @@
 
         <top>
             <VBox>
+                <HBox fx:id="titleBar" styleClass="title-bar" alignment="CENTER_LEFT">
+                    <Label styleClass="title-bar-name" text="timeline"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+
+                    <Button fx:id="minimizeButton" styleClass="caption-button" focusTraversable="false">
+                        <graphic>
+                            <StackPane styleClass="caption-box">
+                                <SVGPath styleClass="caption-glyph" content="M 0 5 L 10 5"/>
+                            </StackPane>
+                        </graphic>
+                    </Button>
+
+                    <Button fx:id="maximizeButton" styleClass="caption-button" focusTraversable="false">
+                        <graphic>
+                            <StackPane styleClass="caption-box">
+                                <SVGPath fx:id="maximizeGlyph" styleClass="caption-glyph"
+                                         content="M 0.5 0.5 L 9.5 0.5 L 9.5 9.5 L 0.5 9.5 Z"/>
+                            </StackPane>
+                        </graphic>
+                    </Button>
+
+                    <Button fx:id="closeButton" styleClass="caption-button" focusTraversable="false">
+                        <graphic>
+                            <StackPane styleClass="caption-box">
+                                <SVGPath styleClass="caption-glyph"
+                                         content="M 0.5 0.5 L 9.5 9.5 M 9.5 0.5 L 0.5 9.5"/>
+                            </StackPane>
+                        </graphic>
+                    </Button>
+                </HBox>
+
                 <HBox styleClass="app-header" alignment="CENTER_LEFT">
-                    <!-- Text is bound in MainView: the greeting needs a name to greet. -->
                     <Label fx:id="appTitle" styleClass="app-title" text="Timeline"/>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
 
-                    <!--
-                        Settings. A 28px square so it matches the primary button's height, and a
-                        stroked SVGPath rather than a text glyph: Arimo has no gear, and the four
-                        glyphs already falling through to Segoe UI Symbol are wart enough.
-                        The path is authored on a 24-unit grid and scaled to 16px; the StackPane
-                        is pinned to 16px in base.css so the scale never moves the layout.
-                    -->
                     <Button fx:id="settingsButton" styleClass="icon-button">
                         <graphic>
                             <StackPane styleClass="icon-box">
@@ -118,13 +135,6 @@
 
     </StackPane>
 
-    <!--
-        The editor. A host pane rather than the editor markup itself, because
-        IdeaEditorView.fxml is loaded fresh on every open: one living here permanently
-        would need its form model reset each time, and its default/cancel buttons are
-        scene-wide, so they would still be firing on Enter and Esc while the main
-        window had focus.
-    -->
     <StackPane fx:id="editorOverlay" styleClass="editor-overlay" visible="false">
 
         <Region fx:id="editorScrim" styleClass="detail-scrim"/>
@@ -133,12 +143,6 @@
 
     </StackPane>
 
-    <!--
-        The first-launch name prompt, last so it sits over everything: it is asked
-        before the user has anything else on screen. Same overlay family as the two
-        panels above — scrim, blurred backdrop, fade — at a size set by its one
-        field rather than by the window.
-    -->
     <StackPane fx:id="namePromptOverlay" styleClass="name-prompt-overlay" visible="false">
 
         <Region fx:id="namePromptScrim" styleClass="detail-scrim"/>
