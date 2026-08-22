@@ -9,13 +9,15 @@ import com.emgi.timeline.repository.sqlite.SchemaInitializer;
 import com.emgi.timeline.repository.sqlite.SqliteConnectionSource;
 import com.emgi.timeline.repository.sqlite.SqliteIdeaRepository;
 import com.emgi.timeline.service.IdeaService;
+import com.emgi.timeline.service.ImageStore;
 import com.emgi.timeline.service.UuidIdGenerator;
+import com.emgi.timeline.settings.PreferencesDisplayNameStore;
 import com.emgi.timeline.settings.PreferencesWindowStateStore;
-import com.emgi.timeline.view.IdeaEditorDialog;
+import com.emgi.timeline.view.IdeaEditorOverlay;
 import com.emgi.timeline.view.MainView;
 import com.emgi.timeline.view.Theme;
 import com.emgi.timeline.view.WindowGeometry;
-import com.emgi.timeline.view.content.BlockRenderer;
+import com.emgi.timeline.view.content.DescriptionRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -59,14 +61,15 @@ public class App extends Application
             return;
         }
 
-        IdeaEditorDialog editorDialog =
-            new IdeaEditorDialog(() -> new IdeaEditorController(service));
+        IdeaEditorOverlay editors = new IdeaEditorOverlay(
+            () -> new IdeaEditorController(service), ImageStore.atDefaultLocation());
 
-        BlockRenderer blockRenderer =
-            new BlockRenderer(uri -> getHostServices().showDocument(uri.toString()));
+        DescriptionRenderer descriptionRenderer =
+            new DescriptionRenderer(uri -> getHostServices().showDocument(uri.toString()));
 
         MainView mainView = new MainView(
-            listController, new IdeaDateFormatter(clock), editorDialog, blockRenderer);
+            listController, new IdeaDateFormatter(clock), editors, descriptionRenderer,
+            PreferencesDisplayNameStore.atUserNode());
 
         FXMLLoader loader = new FXMLLoader(resource(FXML_MAIN));
         loader.setControllerFactory(type ->
@@ -86,7 +89,7 @@ public class App extends Application
 
         stage.setTitle("Timeline");
         stage.setMinWidth(820);
-        stage.setMinHeight(480);
+        stage.setMinHeight(560);
         stage.setScene(scene);
 
         new WindowGeometry(PreferencesWindowStateStore.atUserNode()).install(stage);
