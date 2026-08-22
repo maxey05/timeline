@@ -1,15 +1,46 @@
+/*
+ * Timeline — dark monochrome theme.
+ *
+ * Two greys carry the whole design:
+ *   -canvas   the window ground; nothing sits on it but other surfaces
+ *   -surface  the raised accent — the header, the idea rows, and every text input
+ *
+ * Everything above -surface is a state, not a new material:
+ *   -surface-hover < -surface-selected < -surface-active
+ *
+ * Hierarchy is still type weight and spacing, never colour (ARCHITECTURE.md §6.2).
+ */
 .root
 {
-    -text-primary: #1a1a1a;
-    -text-secondary: #6b6b6b;
-    -surface: #ffffff;
-    -surface-hover: #f7f7f7;
-    -surface-selected: #f0f0f0;
-    -separator: #ececec;
+    -text-primary: #ededed;
+    -text-secondary: #a3a3a3;
+    -canvas: #151515;
+    -surface: #232323;
+    -surface-hover: #2c2c2c;
+    -surface-selected: #383838;
+    -surface-active: #454545;
+    -separator: #343434;
 
-    -text-error: #1a1a1a;
+    -text-error: #ededed;
 
-    -fx-background-color: -surface;
+    /*
+     * Modena derives every control it draws for us — scroll bars, tooltips, radio marks,
+     * dialog panes — from these four. Left at their defaults they stay light, and every
+     * control this file does not name explicitly renders as a white panel in a dark app.
+     */
+    -fx-base: #232323;
+    -fx-background: #151515;
+    -fx-control-inner-background: #232323;
+    -fx-control-inner-background-alt: #232323;
+
+    -fx-accent: #454545;
+    -fx-default-button: #383838;
+    -fx-focus-color: #ededed;
+    -fx-faint-focus-color: rgba(237, 237, 237, 0.15);
+    -fx-mark-color: #ededed;
+    -fx-mark-highlight-color: transparent;
+
+    -fx-background-color: -canvas;
     -fx-text-fill: -text-primary;
 }
 
@@ -38,7 +69,7 @@
 
 .primary-button:hover
 {
-    -fx-background-color: -surface-hover;
+    -fx-background-color: -surface-active;
 }
 
 .primary-button:disabled
@@ -50,7 +81,7 @@
 .idea-list,
 .idea-list .virtual-flow
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
 }
 
 .idea-list .list-cell
@@ -85,7 +116,7 @@
 
 .tag-chip
 {
-    -fx-background-color: -surface;
+    -fx-background-color: transparent;
     -fx-border-color: -separator;
     -fx-text-fill: -text-secondary;
 }
@@ -97,7 +128,7 @@
 
 .editor-pane
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
 }
 
 .field-label
@@ -110,6 +141,9 @@
     -fx-background-color: -surface;
     -fx-border-color: -separator;
     -fx-text-fill: -text-primary;
+    -fx-prompt-text-fill: -text-secondary;
+    -fx-highlight-fill: -surface-active;
+    -fx-highlight-text-fill: -text-primary;
 }
 
 .text-input:focused
@@ -176,7 +210,7 @@
 
 .filter-bar
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
     -fx-border-color: transparent transparent -separator transparent;
     -fx-border-width: 0 0 1px 0;
 }
@@ -192,6 +226,8 @@
     -fx-border-color: -separator;
     -fx-text-fill: -text-primary;
     -fx-prompt-text-fill: -text-secondary;
+    -fx-highlight-fill: -surface-active;
+    -fx-highlight-text-fill: -text-primary;
 }
 
 .search-field:focused
@@ -244,7 +280,7 @@
 .detail-scroll,
 .detail-scroll .viewport
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
 }
 
 .block-glyph
@@ -254,7 +290,7 @@
 
 .block-button
 {
-    -fx-background-color: -surface;
+    -fx-background-color: transparent;
     -fx-text-fill: -text-secondary;
 }
 
@@ -271,7 +307,7 @@
 
 .detail-region
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
     -fx-border-color: transparent transparent transparent -separator;
     -fx-border-width: 0 0 0 1px;
 }
@@ -279,7 +315,7 @@
 .detail-pane,
 .detail-placeholder
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
 }
 
 .detail-title
@@ -316,7 +352,88 @@
 .block-image-missing
 {
     -fx-border-color: -separator;
-    -fx-background-color: -surface-hover;
+    -fx-background-color: -surface;
+}
+
+
+
+.scroll-bar,
+.scroll-bar .track,
+.scroll-bar .track-background
+{
+    -fx-background-color: -canvas;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar .thumb
+{
+    -fx-background-color: -surface-selected;
+}
+
+.scroll-bar .thumb:hover,
+.scroll-bar .thumb:pressed
+{
+    -fx-background-color: -surface-active;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button
+{
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow
+{
+    -fx-background-color: -text-secondary;
+}
+
+.tooltip
+{
+    -fx-background-color: -surface-selected;
+    -fx-text-fill: -text-primary;
+    -fx-border-color: -separator;
+    -fx-border-width: 1px;
+}
+
+.dialog-pane
+{
+    -fx-background-color: -canvas;
+}
+
+.dialog-pane > .header-panel
+{
+    -fx-background-color: -surface;
+}
+
+.dialog-pane > .header-panel .label,
+.dialog-pane > .content.label,
+.dialog-pane .content .label
+{
+    -fx-text-fill: -text-primary;
+}
+
+.dialog-pane > .button-bar > .container
+{
+    -fx-background-color: -canvas;
+}
+
+.dialog-pane .button
+{
+    -fx-background-color: -surface-selected;
+    -fx-text-fill: -text-primary;
+}
+
+.dialog-pane .button:hover
+{
+    -fx-background-color: -surface-active;
+}
+
+.dialog-pane .button:focused,
+.dialog-pane .button:default
+{
+    -fx-background-color: -text-primary, -surface-selected;
+    -fx-background-insets: 0, 1;
 }
 
 
@@ -342,7 +459,7 @@
 
 .block-button:focused
 {
-    -fx-background-color: -text-primary, -surface;
+    -fx-background-color: -text-primary, -canvas;
     -fx-background-insets: 0, 1;
     -fx-background-radius: 3px, 2px;
     -fx-text-fill: -text-primary;
@@ -356,7 +473,7 @@
 
 .detail-scroll:focused
 {
-    -fx-background-color: -text-primary, -surface;
+    -fx-background-color: -text-primary, -canvas;
     -fx-background-insets: 0, 1;
 }
 
