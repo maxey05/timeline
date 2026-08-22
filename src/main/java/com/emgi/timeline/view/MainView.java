@@ -48,6 +48,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.SVGPath;
 import javafx.stage.Window;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
@@ -63,32 +64,15 @@ public class MainView
     private static final ButtonType DELETE =
             new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
 
-    /** How much of the window the detail panel is allowed to cover, and its absolute ceiling. */
     private static final double PANEL_WIDTH_FRACTION = 0.72;
     private static final double PANEL_HEIGHT_FRACTION = 0.80;
     private static final double PANEL_MAX_WIDTH = 720;
     private static final double PANEL_MAX_HEIGHT = 620;
 
-    /*
-     * JavaFX's blur radius is the full kernel extent, not the standard deviation, so it runs
-     * about three times the number a CSS blur() would take for the same softness: 10 here is
-     * a sigma of roughly 3.3. It was 18, which turned the list behind the panel into soup and
-     * cost the backdrop the one thing it is there to say -- your place in the list is still
-     * where you left it.
-     */
     private static final double BACKDROP_BLUR = 10;
 
-    /**
-     * How long an overlay takes to fade in or out. Long enough to read as a movement rather
-     * than a screen change, short enough that opening ten ideas in a row is never waited on.
-     */
     private static final Duration OVERLAY_FADE = Duration.millis(140);
 
-    /**
-     * The name prompt does not scale with the window like the other two panels. It holds one
-     * short field, and a field that grew to 720px would look like a mistake rather than a
-     * question.
-     */
     private static final double NAME_PANEL_WIDTH = 400;
 
     private final IdeaListController controller;
@@ -99,6 +83,21 @@ public class MainView
 
     @FXML
     private Label appTitle;
+
+    @FXML
+    private HBox titleBar;
+
+    @FXML
+    private Button minimizeButton;
+
+    @FXML
+    private Button maximizeButton;
+
+    @FXML
+    private SVGPath maximizeGlyph;
+
+    @FXML
+    private Button closeButton;
 
     @FXML
     private BorderPane contentRoot;
@@ -189,42 +188,26 @@ public class MainView
 
     private final ToggleButton allTagsChip = new ToggleButton("All");
 
-    /** The name the header greets by. Empty until the user has given one. */
     private final StringProperty displayName = new SimpleStringProperty("");
     private final ContextMenu settingsMenu = new ContextMenu();
 
-    /** The editor currently on screen, or null. Its result is read when it closes. */
     private IdeaEditorOverlay.Session editorSession;
 
-    /**
-     * Whether each overlay is logically open, which is not the same as whether its node is
-     * visible -- an overlay stays visible while it fades out. Everything that asks "is the
-     * panel up?" (keyboard routing, the backdrop, where focus goes) asks these instead, so a
-     * panel stops taking part the moment the user closes it rather than a fade later.
-     */
     private boolean detailOpen;
     private boolean editorOpen;
     private boolean namePromptOpen;
 
-    /**
-     * True from the moment the editor is closed until its fade ends and it is torn down. The
-     * editor's own key filter is still live on the shared scene for that stretch, which is
-     * what makes a second Ctrl+Enter inside the fade able to save the same idea twice.
-     */
     private boolean editorClosing;
 
     private final FadeTransition detailFade = new FadeTransition(OVERLAY_FADE);
     private final FadeTransition editorFade = new FadeTransition(OVERLAY_FADE);
     private final FadeTransition namePromptFade = new FadeTransition(OVERLAY_FADE);
 
-    /*
-     * Two instances, not one shared between the nodes: an Effect belongs to the node it is
-     * set on, and handing the same object to two of them is asking for a rendering bug.
-     */
     private final GaussianBlur contentBlur = new GaussianBlur(BACKDROP_BLUR);
     private final GaussianBlur detailBlur = new GaussianBlur(BACKDROP_BLUR);
 
-    /** Tab cycles within these while the panel is open, so focus never escapes behind the scrim. */
+    private WindowChrome windowChrome;
+
     private List<Node> overlayFocusRing = List.of();
     private List<Node> namePromptFocusRing = List.of();
 
@@ -245,7 +228,9 @@ public class MainView
     @FXML
     private void initialize()
     {
-        if(appTitle == null || contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
+        if(appTitle == null || titleBar == null || minimizeButton == null
+            || maximizeButton == null || maximizeGlyph == null || closeButton == null
+            || contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
             || settingsButton == null
             || searchField == null || sortChoice == null || tagFilterRow == null
             || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null
@@ -285,6 +270,7 @@ public class MainView
         newIdeaButton.setDisable(false);
         newIdeaButton.setOnAction(event -> createIdea());
 
+        buildTitleBar();
         buildHeader();
         buildSettingsMenu();
         buildFilterControls();
@@ -314,8 +300,8 @@ public class MainView
                 installAccelerators(current);
                 current.addEventFilter(KeyEvent.KEY_PRESSED, this::onSceneKey);
 
-                // Queued after installAccelerators' own runLater, so the field wins the focus
-                // the list would otherwise have taken.
+                windowChrome.install(current);
+
                 Platform.runLater(this::openNamePromptIfUnnamed);
             }
         });
@@ -334,22 +320,10 @@ public class MainView
         Platform.runLater(ideaListView::requestFocus);
     }
 
-    /**
-     * While the detail panel is open the window behind it is modal: Esc closes, Tab stays inside
-     * the panel, the accelerators are muted, and every other key aimed at something behind the
-     * scrim is swallowed. A filter, not a handler — accelerators only see events a filter left
-     * unconsumed, which is the only way to mute them.
-     */
     private void onSceneKey(KeyEvent event)
     {
         if(editorClosing)
         {
-            /*
-             * The editor is still on the scene while it fades, with its own key filter still
-             * live on it, so an unguarded Ctrl+Enter inside that window would run save() a
-             * second time and write a second copy of the idea. Nothing gets keys until the
-             * editor is gone.
-             */
             event.consume();
             return;
         }
@@ -391,11 +365,6 @@ public class MainView
         }
     }
 
-    /**
-     * While the prompt is up it is the only thing on screen. Esc leaves without a name -- that
-     * is not an error, the question simply comes back next launch -- Tab stays inside, and
-     * nothing else, accelerators included, gets a key.
-     */
     private void onNamePromptKey(KeyEvent event)
     {
         if(event.getCode() == KeyCode.ESCAPE)
@@ -418,12 +387,6 @@ public class MainView
         }
     }
 
-    /**
-     * Far less greedy than the detail panel's branch. IdeaEditorView installs its own filter
-     * on this same scene for Ctrl+Enter, Ctrl+I and Ctrl+V, and this filter was registered
-     * first, so it runs first -- consuming shortcuts wholesale here would eat the editor's
-     * own before they ever reached it. Only the two accelerators MainView owns are muted.
-     */
     private void onEditorKey(KeyEvent event)
     {
         if(editorSession == null)
@@ -467,7 +430,6 @@ public class MainView
         Scene scene = ideaListView.getScene();
         Node focused = scene == null ? null : scene.getFocusOwner();
 
-        // List.of(...).indexOf(null) throws — an immutable list rejects a null probe.
         int current = focused == null ? -1 : ring.indexOf(focused);
         int size = ring.size();
         int next = current < 0 ? 0 : ((current + (backwards ? -1 : 1)) + size) % size;
@@ -565,11 +527,14 @@ public class MainView
         searchField.selectAll();
     }
 
-    /**
-     * The header greets the user by name once there is a name to greet them by, and says the
-     * application's own name until then. First launch asks for one; App sets the property from
-     * what is stored, and again from what the prompt comes back with.
-     */
+    private void buildTitleBar()
+    {
+        closeButton.getStyleClass().add("caption-close");
+
+        windowChrome = new WindowChrome(
+            titleBar, minimizeButton, maximizeButton, maximizeGlyph, closeButton);
+    }
+
     private void buildHeader()
     {
         displayNames.load().ifPresent(displayName::set);
@@ -585,29 +550,16 @@ public class MainView
             : "Welcome to your timeline, " + name + ".";
     }
 
-    /** The name in the header. Writable so that Options can change it without a restart. */
     public StringProperty displayNameProperty()
     {
         return displayName;
     }
 
-    /**
-     * The gear beside "+ New Idea".
-     *
-     * Side.BOTTOM anchors the menu under the button instead of over it, and the 4px gap keeps
-     * the button's own border visible while the menu is open. The menu is then nudged left so
-     * its right edge lines up with the button's — its width is only known once it is showing,
-     * which is why that cannot be an offset passed to show().
-     */
     private void buildSettingsMenu()
     {
         settingsButton.setAccessibleText("Settings");
         settingsButton.setTooltip(new Tooltip("Settings"));
 
-        // TODO: replace this placeholder with the real entries once the settings surface is
-        //       decided. Candidates raised so far: Appearance, Storage location, About Timeline.
-        //       Note that window geometry lives in Preferences while everything else is in
-        //       SQLite, so "where settings are stored" is an open question of its own.
         MenuItem placeholder = new MenuItem("No settings yet");
         placeholder.setDisable(true);
         settingsMenu.getItems().setAll(placeholder);
@@ -710,11 +662,6 @@ public class MainView
         detailOverlay.managedProperty().bind(detailOverlay.visibleProperty());
         detailFade.setNode(detailOverlay);
 
-        /*
-         * The panel is a fraction of the window rather than a fixed box, so the dimmed margin
-         * around it stays visible at every window size, and it still stops growing on a big
-         * monitor where a 1400px-wide read pane would be unreadable.
-         */
         detailPanel.maxWidthProperty().bind(Bindings.min(
             contentRoot.widthProperty().multiply(PANEL_WIDTH_FRACTION), PANEL_MAX_WIDTH));
         detailPanel.maxHeightProperty().bind(Bindings.min(
@@ -724,11 +671,6 @@ public class MainView
 
         detailScrim.setOnMouseClicked(event ->
         {
-            /*
-             * Only a single click dismisses. A double click on a list row opens the panel on the
-             * first press, which puts the scrim under the second press — without this guard the
-             * panel would flash open and shut again.
-             */
             if(event.getClickCount() == 1)
             {
                 closeDetail();
@@ -771,19 +713,11 @@ public class MainView
         editorOverlay.managedProperty().bind(editorOverlay.visibleProperty());
         editorFade.setNode(editorOverlay);
 
-        // The same fractions and ceilings the detail panel uses, so the two modals are the
-        // same size object at every window size.
         editorHost.maxWidthProperty().bind(Bindings.min(
             contentRoot.widthProperty().multiply(PANEL_WIDTH_FRACTION), PANEL_MAX_WIDTH));
         editorHost.maxHeightProperty().bind(Bindings.min(
             contentRoot.heightProperty().multiply(PANEL_HEIGHT_FRACTION), PANEL_MAX_HEIGHT));
 
-        /*
-         * The scrim swallows the click and does nothing else. The detail panel closes on a
-         * scrim click because there is nothing to lose there; here a stray click beside a
-         * half-written idea would either throw it away or throw a confirm dialog over the
-         * user's own typing. Esc and Cancel are the ways out.
-         */
         editorScrim.setOnMouseClicked(MouseEvent::consume);
     }
 
@@ -796,18 +730,8 @@ public class MainView
 
         namePromptPanel.setMaxWidth(NAME_PANEL_WIDTH);
 
-        /*
-         * Without this the panel stretches from the top of the window to the bottom: a Region
-         * whose maxHeight is USE_COMPUTED_SIZE resolves it to Double.MAX_VALUE, not to the
-         * height it would prefer.
-         */
         namePromptPanel.setMaxHeight(Region.USE_PREF_SIZE);
 
-        /*
-         * OK is the only way out that leaves a name behind, so it stays disabled until there
-         * is one to leave -- which is also what a panel with no Cancel button owes the user:
-         * something on screen saying what it is waiting for.
-         */
         nameOkButton.disableProperty().bind(Bindings.createBooleanBinding(
             () -> DisplayNameStore.normalize(nameField.getText()).isEmpty(),
             nameField.textProperty()));
@@ -817,11 +741,9 @@ public class MainView
 
         namePromptFocusRing = List.of(nameField, nameOkButton);
 
-        // A stray click does not dismiss the one question the application ever asks.
         namePromptScrim.setOnMouseClicked(MouseEvent::consume);
     }
 
-    /** Asks for a name, once, on the first launch that finds none stored. */
     private void openNamePromptIfUnnamed()
     {
         if(namePromptOpen || displayNames.load().isPresent())
@@ -836,12 +758,6 @@ public class MainView
         nameField.requestFocus();
     }
 
-    /**
-     * OK, or Enter in the field.
-     *
-     * <p>The name is stored and the header rewritten <em>before</em> the fade starts, so the
-     * greeting the user watches come back into focus behind the panel is already their own.</p>
-     */
     private void submitName()
     {
         Optional<String> name = DisplayNameStore.normalize(nameField.getText());
@@ -868,11 +784,6 @@ public class MainView
         ideaListView.requestFocus();
     }
 
-    /**
-     * Ties the blur strength to the overlays' own opacity, so the window behind sharpens at
-     * exactly the rate the panel over it fades. Without this the blur would snap off at the
-     * end of a fade-out, and a snap is the one thing that makes a transition read as a bug.
-     */
     private void buildBackdrop()
     {
         contentBlur.radiusProperty().bind(
@@ -885,11 +796,6 @@ public class MainView
             editorOverlay.opacityProperty().multiply(BACKDROP_BLUR));
     }
 
-    /**
-     * Brings an overlay up. Interrupting a fade that is still running is normal -- reopening
-     * the panel a user just closed is one gesture -- so the fade starts from wherever the
-     * opacity currently is, and any teardown the interrupted fade was going to run is dropped.
-     */
     private static void fadeIn(Node overlay, FadeTransition fade)
     {
         fade.stop();
@@ -902,13 +808,6 @@ public class MainView
         fade.play();
     }
 
-    /**
-     * Takes an overlay down, and runs {@code afterwards} once it is actually gone.
-     *
-     * <p>It stays visible for the length of the fade, which is the point, but it is made
-     * mouse-transparent for that stretch: the scrim is still lying over the whole window and
-     * would otherwise swallow a click aimed at the list showing through it.</p>
-     */
     private static void fadeOut(Node overlay, FadeTransition fade, Runnable afterwards)
     {
         fade.stop();
@@ -924,21 +823,10 @@ public class MainView
         fade.play();
     }
 
-    /**
-     * The backdrop behind whichever overlay is on top. The effect goes on the nodes BEHIND
-     * the overlay, never on the overlay itself -- they are siblings under the root StackPane,
-     * which is the only reason this is one line each rather than a snapshot dance.
-     *
-     * <p>Called as an overlay opens, and again only once its fade has finished, so the effect
-     * outlives the panel it belongs to by exactly the length of the fade.</p>
-     */
     private void syncBackdrop()
     {
         contentRoot.setEffect(editorOpen || detailOpen || namePromptOpen ? contentBlur : null);
 
-        // The editor can open over an open detail panel, via that panel's Edit... button, so
-        // the panel is backdrop too. Its own scrim blurs to itself and stacks with the
-        // editor's, which is why neither is drawn at full strength.
         detailOverlay.setEffect(editorOpen ? detailBlur : null);
     }
 
@@ -954,10 +842,6 @@ public class MainView
         session.view().attach(window(), ideaListView.getScene(), () -> closeEditor(session));
     }
 
-    /**
-     * What used to be the line after showAndWait(). The editor cannot block, so the result is
-     * read here instead, from the callback the view was handed when it opened.
-     */
     private void closeEditor(IdeaEditorOverlay.Session session)
     {
         if(editorSession != session)
@@ -972,12 +856,6 @@ public class MainView
         fadeOut(editorOverlay, editorFade, () -> finishEditorClose(session));
     }
 
-    /**
-     * The other half of closing, run once the editor has finished fading out. Both lines at
-     * the top of it have to wait for that: detaching disposes the description area, which
-     * empties it on screen, and clearing the host would leave an empty box fading out where
-     * the user could still see an editor.
-     */
     private void finishEditorClose(IdeaEditorOverlay.Session session)
     {
         session.view().detach();
@@ -1014,10 +892,6 @@ public class MainView
         restoreFocus();
     }
 
-    /**
-     * Selection alone no longer opens the panel — a click on a row or Enter does. Keeping the two
-     * apart is what lets the arrow keys walk the list without a modal panel opening on every step.
-     */
     private void openDetail()
     {
         Idea idea = controller.selectedIdeaProperty().get();
@@ -1126,10 +1000,6 @@ public class MainView
         restoreFocus();
     }
 
-    /**
-     * A dialog opened from inside the panel must hand focus back to the panel, not to the list
-     * sitting behind the scrim where the focus ring would be invisible and unreachable.
-     */
     private void restoreFocus()
     {
         if(detailOpen)
