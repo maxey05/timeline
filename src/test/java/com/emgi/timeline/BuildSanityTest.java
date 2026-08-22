@@ -18,4 +18,13 @@ public class BuildSanityTest
         assertThat(getClass().getResource("/com/emgi/timeline/css/base.css")).as("base.css").isNotNull();
         assertThat(getClass().getResource("/com/emgi/timeline/css/theme-mono.css")).as("theme-mono.css").isNotNull();
     }
+
+    @Test
+    void bundledFontFacesAreOnTheClasspath()
+    {
+        assertThat(getClass().getResource("/com/emgi/timeline/fonts/Arimo-Regular.ttf")).as("Arimo-Regular.ttf").isNotNull();
+        assertThat(getClass().getResource("/com/emgi/timeline/fonts/Arimo-Bold.ttf")).as("Arimo-Bold.ttf").isNotNull();
+        assertThat(getClass().getResource("/com/emgi/timeline/fonts/Arimo-Italic.ttf")).as("Arimo-Italic.ttf").isNotNull();
+        assertThat(getClass().getResource("/com/emgi/timeline/fonts/Arimo-BoldItalic.ttf")).as("Arimo-BoldItalic.ttf").isNotNull();
+    }
 }
