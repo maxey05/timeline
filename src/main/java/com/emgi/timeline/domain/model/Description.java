@@ -7,15 +7,6 @@ import com.emgi.timeline.domain.content.ParagraphSegment;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The body of an idea: one uniform block of text.
- *
- * <p>This used to be an ordered list of typed blocks. It is now a single string, and the
- * structure that used to be modelled — links, images — is a convention <em>inside</em>
- * that string, parsed on the way to the screen by {@link DescriptionParser}. The trade is
- * deliberate: the editor becomes one box the user types into, and nothing in the domain,
- * the schema, or the repository has to know that images exist.
- */
 public record Description(String text) {
 
     public static final String ELLIPSIS = "…";
@@ -36,14 +27,6 @@ public record Description(String text) {
         return text.isBlank();
     }
 
-    /**
-     * True when this description holds at least one image and nothing else.
-     *
-     * <p>{@link #plainTextPreview} drops image tokens, so a description of nothing but
-     * pictures previews as an empty string -- indistinguishable, in the list, from an idea
-     * with no description at all. This is the question the list asks to tell those two
-     * apart; what it then says instead is the list's business, not the domain's.</p>
-     */
     public boolean hasOnlyImages() {
         List<DescriptionSegment> segments = DescriptionParser.parse(text);
 
@@ -60,13 +43,6 @@ public record Description(String text) {
         return true;
     }
 
-    /**
-     * A one-line summary for the idea list.
-     *
-     * <p>Image tokens are dropped rather than shown as their raw {@code ![](…)} source —
-     * a preview is for reading, and the file name of a screenshot tells the reader
-     * nothing. Links keep their visible text.
-     */
     public String plainTextPreview(int maxChars) {
         if (maxChars < 1) {
             throw new IllegalArgumentException("maxChars must be at least 1, was " + maxChars);

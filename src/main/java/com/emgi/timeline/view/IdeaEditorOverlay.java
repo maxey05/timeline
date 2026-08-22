@@ -13,16 +13,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/**
- * Builds the idea editor as a node to lay inside the main window, rather than as its own
- * Stage. Nothing here shows anything: MainView owns the overlay the node goes into, which is
- * what lets the editor be modal to the window without a second Stage of its own.
- *
- * <p>The consequence worth knowing: this replaced a {@code showAndWait()} that blocked until
- * the user was done, so there is no return value to read on the next line any more. A caller
- * opens a {@link Session}, hands the view a way to close, and reads {@link Session#result()}
- * from that callback.
- */
 public final class IdeaEditorOverlay
 {
     private static final String FXML = "/com/emgi/timeline/fxml/IdeaEditorView.fxml";
@@ -35,7 +25,6 @@ public final class IdeaEditorOverlay
         }
     }
 
-    /** One open editor: the node on screen, the view driving it, and its outcome so far. */
     public static final class Session
     {
         private final Parent root;
@@ -65,7 +54,6 @@ public final class IdeaEditorOverlay
             return view;
         }
 
-        /** Create and edit finish differently -- one adds to the list, the other replaces. */
         public boolean creating()
         {
             return creating;
@@ -97,12 +85,6 @@ public final class IdeaEditorOverlay
         return build(Objects.requireNonNull(idea, "idea"));
     }
 
-    /*
-     * A fresh controller and a fresh load of the FXML per session. Reusing one editor node
-     * would mean resetting the form model by hand on every open, and its default and cancel
-     * buttons are scene-wide -- they would keep firing on Enter and Esc long after the editor
-     * was hidden.
-     */
     private Session build(Idea existing)
     {
         IdeaEditorController controller = controllers.get();

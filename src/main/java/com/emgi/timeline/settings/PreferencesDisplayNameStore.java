@@ -5,16 +5,8 @@ import java.util.Optional;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-/**
- * Keeps the display name in the same {@code Preferences} node the window geometry uses.
- *
- * <p>That is a deliberate reuse rather than a coincidence: everything that is a setting of
- * the application rather than a piece of the user's data lives in one place, and the ideas
- * database stays a database of ideas.</p>
- */
 public final class PreferencesDisplayNameStore implements DisplayNameStore
 {
-    /** The same node as the window state. Sharing the constant keeps them from drifting. */
     static final String NODE_PATH = PreferencesWindowStateStore.NODE_PATH;
 
     private static final String KEY_NAME = "user.displayName";
@@ -31,10 +23,6 @@ public final class PreferencesDisplayNameStore implements DisplayNameStore
         return new PreferencesDisplayNameStore(Preferences.userRoot().node(NODE_PATH));
     }
 
-    /**
-     * Normalizes on the way out as well as on the way in: the node is a text file on somebody's
-     * disk, and a name that was hand-edited into it is still not allowed to be blank or endless.
-     */
     @Override
     public Optional<String> load()
     {

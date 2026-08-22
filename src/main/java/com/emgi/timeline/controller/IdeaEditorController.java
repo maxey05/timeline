@@ -73,12 +73,6 @@ public final class IdeaEditorController
         return title;
     }
 
-    /**
-     * The whole description, as one string.
-     *
-     * <p>The editor binds a single text box to this bidirectionally. There is no draft
-     * type and no per-piece state any more: what the user sees in the box is the value.
-     */
     public StringProperty descriptionProperty()
     {
         return description;
@@ -230,14 +224,6 @@ public final class IdeaEditorController
         tagsError.set("");
     }
 
-    /**
-     * Hands the form to the service.
-     *
-     * <p>The block model needed a pre-flight pass here to turn draft rows into blocks and
-     * to report the ones that could not convert. One string needs none of that, so every
-     * INVALID now comes from {@code IdeaValidator} by way of the service -- there is
-     * exactly one place that decides whether a description is acceptable.
-     */
     public SaveResult save()
     {
         clearErrors();

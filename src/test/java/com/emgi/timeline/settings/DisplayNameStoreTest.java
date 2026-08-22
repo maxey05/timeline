@@ -53,7 +53,6 @@ class DisplayNameStoreTest {
     @Test
     @DisplayName("the cut never splits a surrogate pair in half")
     void cuttingDoesNotSplitASurrogatePair() {
-        // Escaped rather than literal: the codebase keeps non-ASCII out of string literals.
         String rocket = "\uD83D\uDE80";
         String longName = "c".repeat(DisplayNameStore.MAX_LENGTH - 1) + rocket;
 

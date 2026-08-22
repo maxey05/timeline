@@ -19,13 +19,6 @@ public final class IdeaValidator {
 
     public static final int TITLE_MAX_LENGTH = 120;
 
-    /**
-     * The cap on the whole description body.
-     *
-     * <p>The old limit was 10,000 characters <em>per text block</em>, and an idea could
-     * hold any number of blocks. One body replacing several of them would be a tightening
-     * at the same number, so the cap is doubled.
-     */
     public static final int DESCRIPTION_MAX_LENGTH = 20_000;
 
     public static final int MAX_TAGS = 20;
@@ -59,14 +52,6 @@ public final class IdeaValidator {
         }
     }
 
-    /**
-     * Everything a description can get wrong.
-     *
-     * <p>Which is very little, now that it is one string. Malformed link and image
-     * syntax is not an error — the parser leaves it as literal text. The one genuine
-     * failure is an image address that parses but is relative, because that renders as a
-     * broken picture with nothing on screen explaining why.
-     */
     private void validateDescription(Description description, List<ValidationError> errors) {
         String text = description.text();
 

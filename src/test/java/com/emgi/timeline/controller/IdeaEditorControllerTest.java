@@ -572,7 +572,6 @@ class IdeaEditorControllerTest {
         assertThat(controller.isDirty()).isTrue();
     }
 
-    // -------------------------------------------------------------- the description box
 
     @Test
     @DisplayName("beginEdit loads the stored text verbatim, newlines and tokens included")

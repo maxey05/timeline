@@ -66,21 +66,12 @@ public class IdeaEditorView
 
     private final ImageStore imageStore;
 
-    /*
-     * What the Stage used to be. An owner to parent alerts on, the scene carrying this
-     * editor's shortcut filter, and a way to close -- MainView hides the overlay.
-     */
     private Window owner;
 
     private Scene scene;
 
     private Runnable closeAction;
 
-    /*
-     * Held rather than written as this::onEditorKey at both call sites: a method reference
-     * is a fresh object each time it is evaluated, so removeEventFilter would silently
-     * remove nothing and every open would leave another filter on the scene.
-     */
     private final EventHandler<KeyEvent> keyFilter = this::onEditorKey;
 
     @FXML
@@ -104,17 +95,10 @@ public class IdeaEditorView
     @FXML
     private StackPane descriptionStack;
 
-    /*
-     * NOT @FXML. A GenericStyledArea is generic in three type parameters and has no no-arg
-     * constructor FXML could call, so the writing surface is built in code and dropped into
-     * the descriptionStack placeholder that IS injected.
-     */
     private DescriptionArea descriptionArea;
 
-    /** Pushes edits into the controller. Held so detach can unsubscribe it. */
     private Subscription descriptionChanges;
 
-    /** True while load() is rewriting the document, so its own edits are not pushed back. */
     private boolean loadingDescription;
 
     @FXML
@@ -135,11 +119,6 @@ public class IdeaEditorView
         this.imageStore = Objects.requireNonNull(imageStore, "imageStore");
     }
 
-    /**
-     * Hands the view what the Stage used to give it. There is no onCloseRequest hook on an
-     * overlay, so the Esc route in is {@link #requestClose()}, which MainView calls from its
-     * own scene filter.
-     */
     void attach(Window owner, Scene scene, Runnable closeAction)
     {
         this.owner = owner;
@@ -151,7 +130,6 @@ public class IdeaEditorView
         Platform.runLater(titleField::requestFocus);
     }
 
-    /** Takes the shortcut filter back off the shared scene. Closing without this leaks it. */
     void detach()
     {
         if(scene != null)
@@ -159,11 +137,6 @@ public class IdeaEditorView
             scene.removeEventFilter(KeyEvent.KEY_PRESSED, keyFilter);
         }
 
-        /*
-         * Both are required. The subscription would keep pushing edits into a controller
-         * whose editor is gone, and GenericStyledArea holds internal subscriptions of its
-         * own that only dispose() releases -- a TextArea never needed either.
-         */
         if(descriptionChanges != null)
         {
             descriptionChanges.unsubscribe();
@@ -179,7 +152,6 @@ public class IdeaEditorView
         closeAction = null;
     }
 
-    /** Esc or Cancel: confirm before throwing away anything the user typed. */
     void requestClose()
     {
         if(confirmDiscard())
@@ -188,11 +160,6 @@ public class IdeaEditorView
         }
     }
 
-    /**
-     * Tab cycles within these while the editor is open. The tag chips' remove buttons are
-     * deliberately out of the ring: they appear and disappear as tags are added, and a ring
-     * that changes shape under the user is worse than one that needs a click.
-     */
     List<Node> focusRing()
     {
         List<Node> ring = new ArrayList<>();
@@ -261,18 +228,6 @@ public class IdeaEditorView
         cancelButton.setTooltip(new Tooltip("Cancel  (Esc)"));
     }
 
-    /**
-     * Builds the writing surface and keeps it and the controller in step.
-     *
-     * <p>There is no bindBidirectional here, and there cannot be: the document is not a
-     * String property, so the two directions are different operations. Loading parses a
-     * string into a document; editing serialises a document back into a string. The guard
-     * flag is what stops the first from triggering the second.
-     *
-     * <p>The area goes inside a VirtualizedScrollPane rather than scrolling itself. That is
-     * how RichTextFX scrolls -- the area renders only the paragraphs actually on screen, and
-     * the scroll pane is the thing that knows which those are.
-     */
     private void buildDescriptionArea()
     {
         descriptionArea = new DescriptionArea();
@@ -281,7 +236,6 @@ public class IdeaEditorView
             new VirtualizedScrollPane<>(descriptionArea);
         scroll.getStyleClass().add("description-scroll");
 
-        // Index 0: the insert-image button is already in the stack and must stay on top.
         descriptionStack.getChildren().add(0, scroll);
 
         loadingDescription = true;
@@ -322,13 +276,6 @@ public class IdeaEditorView
         return confirm.showAndWait().filter(choice -> choice == DISCARD).isPresent();
     }
 
-    /*
-     * A Scene filter, not a handler: the writing surface consumes most keys while they
-     * bubble, and accelerators only fire on unconsumed events. Filters run top-down, so this
-     * sees the keystroke first. That is also why Ctrl+V is intercepted here rather than on
-     * the area -- and why it must NOT consume when the clipboard holds no picture, so the
-     * area's own paste still runs and a copied link lands as text.
-     */
     private void onEditorKey(KeyEvent event)
     {
         if(!event.isShortcutDown())
@@ -366,7 +313,6 @@ public class IdeaEditorView
         return descriptionArea != null && descriptionArea.isFocused();
     }
 
-    /** Copies any picture on the clipboard into the store. False means "not a picture". */
     private boolean pasteImages()
     {
         Clipboard clipboard = Clipboard.getSystemClipboard();
@@ -443,11 +389,6 @@ public class IdeaEditorView
         descriptionArea.requestFocus();
     }
 
-    /*
-     * All of the caret and newline bookkeeping this used to do moved into DescriptionArea,
-     * where the document actually lives. What is left is the part that belongs to the view:
-     * put the caret back where the user was typing.
-     */
     private void insertImages(List<URI> sources)
     {
         descriptionArea.insertImages(sources);

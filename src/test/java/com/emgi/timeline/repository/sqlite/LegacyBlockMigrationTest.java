@@ -12,11 +12,6 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * A database written before the block model was dropped has to keep working. This builds
- * one by hand — the old schema is gone from schema.sql, so there is nowhere else to get
- * it — and then checks that opening the app against it folds the blocks into text.
- */
 @DisplayName("LegacyBlockMigration")
 class LegacyBlockMigrationTest {
 
@@ -131,7 +126,6 @@ class LegacyBlockMigrationTest {
         }
     }
 
-    // ---------------------------------------------------------------- fixtures
 
     private static void givenAnOldDatabase(Connection connection) throws SQLException {
         execute(connection, OLD_IDEA_TABLE);

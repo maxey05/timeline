@@ -7,39 +7,19 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Turns the single description string into the segments the detail panel draws.
- *
- * <p>The description is plain text with exactly two conventions, and no others:
- *
- * <ol>
- *   <li>A line that is nothing but {@code ![alt](uri)} is an image.</li>
- *   <li>Anything that looks like a web address inside ordinary text is a link.</li>
- * </ol>
- *
- * <p>Both conventions are forgiving by design. A token whose address will not parse is
- * left as literal text rather than reported as an error, so a user who types a stray
- * {@code ![} sees exactly what they typed instead of a validation message they cannot
- * act on. The only thing that is ever an error is an image address that parses but is
- * relative, because that one silently fails to load a picture.
- */
 public final class DescriptionParser {
 
-    /** A whole line consisting of one image token. */
     private static final Pattern IMAGE_LINE =
             Pattern.compile("^\\s*!\\[([^\\]]*)\\]\\((\\S+)\\)\\s*$");
 
-    /** A candidate web address. Trailing punctuation is trimmed afterwards. */
     private static final Pattern ADDRESS =
             Pattern.compile("(?i)(?:https?://|file://|www\\.)\\S+");
 
-    /** Sentence punctuation that a URL at the end of a sentence must not swallow. */
     private static final String TRAILING_PUNCTUATION = ".,;:!?\"'";
 
     private DescriptionParser() {
     }
 
-    /** Splits {@code text} into paragraphs and images, in the order they appear. */
     public static List<DescriptionSegment> parse(String text) {
         if (text == null || text.isBlank()) {
             return List.of();
@@ -65,7 +45,6 @@ public final class DescriptionParser {
         return List.copyOf(segments);
     }
 
-    /** Just the images, for validation and for counting them in a message. */
     public static List<ImageSegment> images(String text) {
         List<ImageSegment> images = new ArrayList<>();
         for (DescriptionSegment segment : parse(text)) {
@@ -76,7 +55,6 @@ public final class DescriptionParser {
         return List.copyOf(images);
     }
 
-    /** The text form of an image, as the editor inserts it on a line of its own. */
     public static String imageToken(URI source, String altText) {
         String alt = altText == null ? "" : altText.replaceAll("[\\[\\]\\r\\n]", " ").strip();
         return "![" + alt + "](" + source + ")";
@@ -91,13 +69,6 @@ public final class DescriptionParser {
         }
     }
 
-    /**
-     * Splits one paragraph into alternating plain and link runs.
-     *
-     * <p>The cursor deliberately lags the matcher: when trailing punctuation is trimmed
-     * off a match, the trimmed characters stay unclaimed and are picked up by the next
-     * gap or by the tail, so nothing is ever dropped from the visible text.
-     */
     static List<TextRun> runsIn(String paragraph) {
         List<TextRun> runs = new ArrayList<>();
         Matcher matcher = ADDRESS.matcher(paragraph);
@@ -157,7 +128,6 @@ public final class DescriptionParser {
         return found;
     }
 
-    /** Parses an address, supplying the scheme a bare {@code www.} host leaves out. */
     private static URI asAbsoluteUri(String candidate) {
         String href = candidate.regionMatches(true, 0, "www.", 0, 4)
                 ? "https://" + candidate

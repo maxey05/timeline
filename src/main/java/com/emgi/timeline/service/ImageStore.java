@@ -11,24 +11,10 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-/**
- * Owns the folder that pasted and inserted pictures are copied into.
- *
- * <p>V1 decided that media would be <em>referenced</em> by address rather than copied.
- * A clipboard image has no address to reference -- the bytes exist only in the clipboard
- * -- so paste forces a copy, and once one path copies it is worse to have the other path
- * not copy: a picture that survives its source being moved and one that does not would
- * look identical on screen. So everything is copied, here, under a generated name.
- *
- * <p>Deliberately framework-free and deliberately not a repository: it writes loose files
- * beside the database rather than rows inside it. Nothing ever deletes from this folder,
- * which is the known cost -- removing an image from a description orphans its file.
- */
 public final class ImageStore
 {
     public static final String DEFAULT_EXTENSION = "png";
 
-    /** Guards against a source file whose "extension" is really part of an attack. */
     private static final Pattern SAFE_EXTENSION = Pattern.compile("[a-z0-9]{1,8}");
 
     private final Path directory;
@@ -53,7 +39,6 @@ public final class ImageStore
         return directory;
     }
 
-    /** Writes {@code bytes} under a generated name and returns the address to store. */
     public URI store(byte[] bytes, String extension)
     {
         Objects.requireNonNull(bytes, "bytes");
@@ -73,7 +58,6 @@ public final class ImageStore
         return target.toUri();
     }
 
-    /** Copies an existing file in, keeping its extension but not its name. */
     public URI copyFrom(Path source)
     {
         Objects.requireNonNull(source, "source");

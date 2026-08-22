@@ -43,11 +43,6 @@ public final class IdeaRowMapper
         statement.setString(6, idea.updatedAt().toString());
     }
 
-    /*
-     * The column is NOT NULL DEFAULT '', but a row written before the migration added the
-     * column can still read back as null on some drivers. An idea with no description is
-     * ordinary, so this is a default rather than a StorageException.
-     */
     private static String text(String raw)
     {
         return raw == null ? "" : raw;

@@ -21,17 +21,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/**
- * Draws a description into the detail panel.
- *
- * <p>Replaces BlockRenderer. The difference is where the structure comes from: it used to
- * be handed a typed list the domain had stored, and now it asks {@link DescriptionParser}
- * to derive one from a string. Everything below that line is the same job.
- *
- * <p>A paragraph becomes a TextFlow rather than a Label because a Label cannot hold a
- * clickable Hyperlink partway through its own text -- which is exactly what "paste a link
- * into a sentence" needs.
- */
 public final class DescriptionRenderer
 {
     public static final double MAX_IMAGE_WIDTH = 280;

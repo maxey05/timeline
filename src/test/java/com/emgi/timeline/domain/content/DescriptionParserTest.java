@@ -9,18 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/**
- * The parse is where the description's two conventions actually live, so this is where
- * they are pinned down. The old block renderer had no automated test at all — it was the
- * one named coverage gap of the rich-content phase — because everything worth checking
- * about it was tangled up in scene-graph nodes. Deriving the structure in the domain
- * instead means the interesting half is testable without a toolkit.
- */
 class DescriptionParserTest {
 
     private static final String PNG = "file:///home/emgi/shot.png";
 
-    // ---------------------------------------------------------------- paragraphs
 
     @Test
     void emptyTextHasNoSegments() {
@@ -63,7 +55,6 @@ class DescriptionParserTest {
         assertThat(segments.get(1) instanceof ImageSegment).isTrue();
     }
 
-    // ---------------------------------------------------------------- images
 
     @Test
     void anImageOnItsOwnLineBecomesAnImageSegment() {
@@ -133,7 +124,6 @@ class DescriptionParserTest {
         assertThat(images.get(1).altText()).isEqualTo("two");
     }
 
-    // ---------------------------------------------------------------- tokens
 
     @Test
     void aTokenTheParserEmitsIsATokenTheParserReads() {
@@ -161,7 +151,6 @@ class DescriptionParserTest {
                 .isEqualTo("![](" + PNG + ")");
     }
 
-    // ---------------------------------------------------------------- links
 
     @Test
     void anAddressInsideASentenceBecomesItsOwnRun() {
@@ -256,7 +245,6 @@ class DescriptionParserTest {
         assertThat(plainTextOf(runsOf(text))).isEqualTo(text);
     }
 
-    // ---------------------------------------------------------------- helpers
 
     private static ParagraphSegment paragraphAt(List<DescriptionSegment> segments, int index) {
         return (ParagraphSegment) segments.get(index);

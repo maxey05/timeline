@@ -15,18 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Folds the old {@code idea_block} table into the new {@code idea.description} column.
- *
- * <p>This runs once, on a database written by a build that still had the block model, and
- * then the table is gone and it never runs again. It is intentionally the only place in
- * the codebase that still knows the words TEXT, LINK and IMAGE as block types.
- *
- * <p>The flattening is lossy in exactly one way, and knowingly: a link block carried a
- * separate label, and the new format has nowhere to put one, because links are recognised
- * from the address itself. A labelled link becomes {@code label (address)}, which reads
- * naturally and still renders the address as a link.
- */
 final class LegacyBlockMigration {
 
     private static final String LEGACY_TABLE = "idea_block";
@@ -40,7 +28,6 @@ final class LegacyBlockMigration {
     private LegacyBlockMigration() {
     }
 
-    /** Adds the description column if it is missing, then drains and drops the block table. */
     static void apply(Connection connection) {
         try {
             if (!hasColumn(connection, "idea", "description")) {

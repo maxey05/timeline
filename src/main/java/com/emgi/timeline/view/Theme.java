@@ -10,13 +10,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The single place that knows what Timeline is dressed in: which stylesheets a window wears,
- * and which font faces the application ships with.
- *
- * <p>This is view-layer only. It carries no rules, no state, and nothing below it depends on
- * it — deleting this class would cost the application its looks and nothing else.</p>
- */
 public final class Theme
 {
     private static final String CSS_BASE = "/com/emgi/timeline/css/base.css";
@@ -33,14 +26,6 @@ public final class Theme
     {
     }
 
-    /**
-     * Registers the bundled Arimo faces with the JavaFX font system, so that
-     * {@code -fx-font-family: "Arimo"} resolves on a machine that has never installed it.
-     *
-     * <p>Call once, before the first scene is built. A face that will not load is reported on
-     * stderr and skipped: the fallback stack in base.css takes over, which is a worse-looking
-     * application but still a working one.</p>
-     */
     public static void loadFonts()
     {
         for(String face : FONT_FACES)
@@ -67,11 +52,6 @@ public final class Theme
         Objects.requireNonNull(scene, "scene").getStylesheets().setAll(stylesheets());
     }
 
-    /**
-     * An {@code Alert} owns its own {@code Stage} and {@code Scene}, so it does not inherit the
-     * stylesheets of the window that opened it. Without this call every confirmation and error
-     * in the application renders in Modena's light default — white panels out of a dark app.
-     */
     public static void applyTo(Dialog<?> dialog)
     {
         Objects.requireNonNull(dialog, "dialog")
