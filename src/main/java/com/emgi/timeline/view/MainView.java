@@ -4,12 +4,16 @@ import com.emgi.timeline.controller.IdeaListController;
 import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.domain.query.SortOrder;
+import com.emgi.timeline.settings.DisplayNameStore;
 import com.emgi.timeline.view.cell.IdeaListCell;
-import com.emgi.timeline.view.content.BlockRenderer;
+import com.emgi.timeline.view.content.DescriptionRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
+import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.ListChangeListener;
 import javafx.event.EventTarget;
 import javafx.geometry.Side;
@@ -31,6 +35,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -44,6 +49,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import javafx.util.StringConverter;
 
 import java.util.ArrayList;
@@ -63,10 +69,36 @@ public class MainView
     private static final double PANEL_MAX_WIDTH = 720;
     private static final double PANEL_MAX_HEIGHT = 620;
 
+    /*
+     * JavaFX's blur radius is the full kernel extent, not the standard deviation, so it runs
+     * about three times the number a CSS blur() would take for the same softness: 10 here is
+     * a sigma of roughly 3.3. It was 18, which turned the list behind the panel into soup and
+     * cost the backdrop the one thing it is there to say -- your place in the list is still
+     * where you left it.
+     */
+    private static final double BACKDROP_BLUR = 10;
+
+    /**
+     * How long an overlay takes to fade in or out. Long enough to read as a movement rather
+     * than a screen change, short enough that opening ten ideas in a row is never waited on.
+     */
+    private static final Duration OVERLAY_FADE = Duration.millis(140);
+
+    /**
+     * The name prompt does not scale with the window like the other two panels. It holds one
+     * short field, and a field that grew to 720px would look like a mistake rather than a
+     * question.
+     */
+    private static final double NAME_PANEL_WIDTH = 400;
+
     private final IdeaListController controller;
     private final IdeaDateFormatter dateFormatter;
-    private final IdeaEditorDialog editorDialog;
-    private final BlockRenderer blockRenderer;
+    private final IdeaEditorOverlay editors;
+    private final DescriptionRenderer descriptionRenderer;
+    private final DisplayNameStore displayNames;
+
+    @FXML
+    private Label appTitle;
 
     @FXML
     private BorderPane contentRoot;
@@ -123,7 +155,7 @@ public class MainView
     private ScrollPane detailScroll;
 
     @FXML
-    private VBox detailBlocks;
+    private VBox descriptionWell;
 
     @FXML
     private Button detailCloseButton;
@@ -131,34 +163,99 @@ public class MainView
     @FXML
     private Button detailEditButton;
 
+    @FXML
+    private StackPane editorOverlay;
+
+    @FXML
+    private Region editorScrim;
+
+    @FXML
+    private StackPane editorHost;
+
+    @FXML
+    private StackPane namePromptOverlay;
+
+    @FXML
+    private Region namePromptScrim;
+
+    @FXML
+    private VBox namePromptPanel;
+
+    @FXML
+    private TextField nameField;
+
+    @FXML
+    private Button nameOkButton;
+
     private final ToggleButton allTagsChip = new ToggleButton("All");
+
+    /** The name the header greets by. Empty until the user has given one. */
+    private final StringProperty displayName = new SimpleStringProperty("");
     private final ContextMenu settingsMenu = new ContextMenu();
+
+    /** The editor currently on screen, or null. Its result is read when it closes. */
+    private IdeaEditorOverlay.Session editorSession;
+
+    /**
+     * Whether each overlay is logically open, which is not the same as whether its node is
+     * visible -- an overlay stays visible while it fades out. Everything that asks "is the
+     * panel up?" (keyboard routing, the backdrop, where focus goes) asks these instead, so a
+     * panel stops taking part the moment the user closes it rather than a fade later.
+     */
+    private boolean detailOpen;
+    private boolean editorOpen;
+    private boolean namePromptOpen;
+
+    /**
+     * True from the moment the editor is closed until its fade ends and it is torn down. The
+     * editor's own key filter is still live on the shared scene for that stretch, which is
+     * what makes a second Ctrl+Enter inside the fade able to save the same idea twice.
+     */
+    private boolean editorClosing;
+
+    private final FadeTransition detailFade = new FadeTransition(OVERLAY_FADE);
+    private final FadeTransition editorFade = new FadeTransition(OVERLAY_FADE);
+    private final FadeTransition namePromptFade = new FadeTransition(OVERLAY_FADE);
+
+    /*
+     * Two instances, not one shared between the nodes: an Effect belongs to the node it is
+     * set on, and handing the same object to two of them is asking for a rendering bug.
+     */
+    private final GaussianBlur contentBlur = new GaussianBlur(BACKDROP_BLUR);
+    private final GaussianBlur detailBlur = new GaussianBlur(BACKDROP_BLUR);
 
     /** Tab cycles within these while the panel is open, so focus never escapes behind the scrim. */
     private List<Node> overlayFocusRing = List.of();
+    private List<Node> namePromptFocusRing = List.of();
 
     public MainView(IdeaListController controller,
                     IdeaDateFormatter dateFormatter,
-                    IdeaEditorDialog editorDialog,
-                    BlockRenderer blockRenderer)
+                    IdeaEditorOverlay editors,
+                    DescriptionRenderer descriptionRenderer,
+                    DisplayNameStore displayNames)
     {
         this.controller = Objects.requireNonNull(controller, "controller");
         this.dateFormatter = Objects.requireNonNull(dateFormatter, "dateFormatter");
-        this.editorDialog = Objects.requireNonNull(editorDialog, "editorDialog");
-        this.blockRenderer = Objects.requireNonNull(blockRenderer, "blockRenderer");
+        this.editors = Objects.requireNonNull(editors, "editors");
+        this.descriptionRenderer =
+            Objects.requireNonNull(descriptionRenderer, "descriptionRenderer");
+        this.displayNames = Objects.requireNonNull(displayNames, "displayNames");
     }
 
     @FXML
     private void initialize()
     {
-        if(contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
+        if(appTitle == null || contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
             || settingsButton == null
             || searchField == null || sortChoice == null || tagFilterRow == null
             || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null
             || detailOverlay == null || detailScrim == null || detailPanel == null
             || detailTitle == null || detailMeta == null || detailTags == null
-            || detailScroll == null || detailBlocks == null || detailCloseButton == null
-            || detailEditButton == null)
+            || detailScroll == null || descriptionWell == null || detailCloseButton == null
+            || detailEditButton == null
+            || editorOverlay == null || editorScrim == null || editorHost == null
+            || namePromptOverlay == null || namePromptScrim == null || namePromptPanel == null
+            || nameField == null || nameOkButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
@@ -188,9 +285,13 @@ public class MainView
         newIdeaButton.setDisable(false);
         newIdeaButton.setOnAction(event -> createIdea());
 
+        buildHeader();
         buildSettingsMenu();
         buildFilterControls();
         buildDetailOverlay();
+        buildEditorOverlay();
+        buildNamePrompt();
+        buildBackdrop();
         installKeyboard();
 
         ideaListView.setOnMouseClicked(this::onListClick);
@@ -212,6 +313,10 @@ public class MainView
             {
                 installAccelerators(current);
                 current.addEventFilter(KeyEvent.KEY_PRESSED, this::onSceneKey);
+
+                // Queued after installAccelerators' own runLater, so the field wins the focus
+                // the list would otherwise have taken.
+                Platform.runLater(this::openNamePromptIfUnnamed);
             }
         });
     }
@@ -237,7 +342,31 @@ public class MainView
      */
     private void onSceneKey(KeyEvent event)
     {
-        if(!detailOverlay.isVisible())
+        if(editorClosing)
+        {
+            /*
+             * The editor is still on the scene while it fades, with its own key filter still
+             * live on it, so an unguarded Ctrl+Enter inside that window would run save() a
+             * second time and write a second copy of the idea. Nothing gets keys until the
+             * editor is gone.
+             */
+            event.consume();
+            return;
+        }
+
+        if(namePromptOpen)
+        {
+            onNamePromptKey(event);
+            return;
+        }
+
+        if(editorOpen)
+        {
+            onEditorKey(event);
+            return;
+        }
+
+        if(!detailOpen)
         {
             return;
         }
@@ -256,7 +385,68 @@ public class MainView
             return;
         }
 
-        if(event.isShortcutDown() || !isInsideOverlay(event.getTarget()))
+        if(event.isShortcutDown() || !isInside(event.getTarget(), detailOverlay))
+        {
+            event.consume();
+        }
+    }
+
+    /**
+     * While the prompt is up it is the only thing on screen. Esc leaves without a name -- that
+     * is not an error, the question simply comes back next launch -- Tab stays inside, and
+     * nothing else, accelerators included, gets a key.
+     */
+    private void onNamePromptKey(KeyEvent event)
+    {
+        if(event.getCode() == KeyCode.ESCAPE)
+        {
+            closeNamePrompt();
+            event.consume();
+            return;
+        }
+
+        if(event.getCode() == KeyCode.TAB)
+        {
+            cycleFocus(namePromptFocusRing, event.isShiftDown());
+            event.consume();
+            return;
+        }
+
+        if(event.isShortcutDown() || !isInside(event.getTarget(), namePromptOverlay))
+        {
+            event.consume();
+        }
+    }
+
+    /**
+     * Far less greedy than the detail panel's branch. IdeaEditorView installs its own filter
+     * on this same scene for Ctrl+Enter, Ctrl+I and Ctrl+V, and this filter was registered
+     * first, so it runs first -- consuming shortcuts wholesale here would eat the editor's
+     * own before they ever reached it. Only the two accelerators MainView owns are muted.
+     */
+    private void onEditorKey(KeyEvent event)
+    {
+        if(editorSession == null)
+        {
+            return;
+        }
+
+        if(event.getCode() == KeyCode.ESCAPE)
+        {
+            editorSession.view().requestClose();
+            event.consume();
+            return;
+        }
+
+        if(event.getCode() == KeyCode.TAB)
+        {
+            cycleFocus(editorSession.view().focusRing(), event.isShiftDown());
+            event.consume();
+            return;
+        }
+
+        if(event.isShortcutDown()
+            && (event.getCode() == KeyCode.N || event.getCode() == KeyCode.F))
         {
             event.consume();
         }
@@ -264,23 +454,28 @@ public class MainView
 
     private void cycleOverlayFocus(boolean backwards)
     {
-        if(overlayFocusRing.isEmpty())
+        cycleFocus(overlayFocusRing, backwards);
+    }
+
+    private void cycleFocus(List<Node> ring, boolean backwards)
+    {
+        if(ring.isEmpty())
         {
             return;
         }
 
-        Scene scene = detailOverlay.getScene();
+        Scene scene = ideaListView.getScene();
         Node focused = scene == null ? null : scene.getFocusOwner();
 
         // List.of(...).indexOf(null) throws — an immutable list rejects a null probe.
-        int current = focused == null ? -1 : overlayFocusRing.indexOf(focused);
-        int size = overlayFocusRing.size();
+        int current = focused == null ? -1 : ring.indexOf(focused);
+        int size = ring.size();
         int next = current < 0 ? 0 : ((current + (backwards ? -1 : 1)) + size) % size;
 
-        overlayFocusRing.get(next).requestFocus();
+        ring.get(next).requestFocus();
     }
 
-    private boolean isInsideOverlay(EventTarget target)
+    private static boolean isInside(EventTarget target, Node ancestor)
     {
         if(!(target instanceof Node node))
         {
@@ -289,7 +484,7 @@ public class MainView
 
         for(Node current = node; current != null; current = current.getParent())
         {
-            if(current == detailOverlay)
+            if(current == ancestor)
             {
                 return true;
             }
@@ -368,6 +563,32 @@ public class MainView
     {
         searchField.requestFocus();
         searchField.selectAll();
+    }
+
+    /**
+     * The header greets the user by name once there is a name to greet them by, and says the
+     * application's own name until then. First launch asks for one; App sets the property from
+     * what is stored, and again from what the prompt comes back with.
+     */
+    private void buildHeader()
+    {
+        displayNames.load().ifPresent(displayName::set);
+
+        appTitle.textProperty().bind(
+            Bindings.createStringBinding(() -> greeting(displayName.get()), displayName));
+    }
+
+    private static String greeting(String name)
+    {
+        return name == null || name.isBlank()
+            ? "Welcome to your timeline."
+            : "Welcome to your timeline, " + name + ".";
+    }
+
+    /** The name in the header. Writable so that Options can change it without a restart. */
+    public StringProperty displayNameProperty()
+    {
+        return displayName;
     }
 
     /**
@@ -485,7 +706,9 @@ public class MainView
     private void buildDetailOverlay()
     {
         detailOverlay.setVisible(false);
+        detailOverlay.setOpacity(0);
         detailOverlay.managedProperty().bind(detailOverlay.visibleProperty());
+        detailFade.setNode(detailOverlay);
 
         /*
          * The panel is a fraction of the window rather than a fixed box, so the dimmed margin
@@ -534,11 +757,261 @@ public class MainView
                     ideaListView.getSelectionModel().select(current);
                 }
 
-                if(detailOverlay.isVisible())
+                if(detailOpen)
                 {
                     showDetail(current);
                 }
             });
+    }
+
+    private void buildEditorOverlay()
+    {
+        editorOverlay.setVisible(false);
+        editorOverlay.setOpacity(0);
+        editorOverlay.managedProperty().bind(editorOverlay.visibleProperty());
+        editorFade.setNode(editorOverlay);
+
+        // The same fractions and ceilings the detail panel uses, so the two modals are the
+        // same size object at every window size.
+        editorHost.maxWidthProperty().bind(Bindings.min(
+            contentRoot.widthProperty().multiply(PANEL_WIDTH_FRACTION), PANEL_MAX_WIDTH));
+        editorHost.maxHeightProperty().bind(Bindings.min(
+            contentRoot.heightProperty().multiply(PANEL_HEIGHT_FRACTION), PANEL_MAX_HEIGHT));
+
+        /*
+         * The scrim swallows the click and does nothing else. The detail panel closes on a
+         * scrim click because there is nothing to lose there; here a stray click beside a
+         * half-written idea would either throw it away or throw a confirm dialog over the
+         * user's own typing. Esc and Cancel are the ways out.
+         */
+        editorScrim.setOnMouseClicked(MouseEvent::consume);
+    }
+
+    private void buildNamePrompt()
+    {
+        namePromptOverlay.setVisible(false);
+        namePromptOverlay.setOpacity(0);
+        namePromptOverlay.managedProperty().bind(namePromptOverlay.visibleProperty());
+        namePromptFade.setNode(namePromptOverlay);
+
+        namePromptPanel.setMaxWidth(NAME_PANEL_WIDTH);
+
+        /*
+         * Without this the panel stretches from the top of the window to the bottom: a Region
+         * whose maxHeight is USE_COMPUTED_SIZE resolves it to Double.MAX_VALUE, not to the
+         * height it would prefer.
+         */
+        namePromptPanel.setMaxHeight(Region.USE_PREF_SIZE);
+
+        /*
+         * OK is the only way out that leaves a name behind, so it stays disabled until there
+         * is one to leave -- which is also what a panel with no Cancel button owes the user:
+         * something on screen saying what it is waiting for.
+         */
+        nameOkButton.disableProperty().bind(Bindings.createBooleanBinding(
+            () -> DisplayNameStore.normalize(nameField.getText()).isEmpty(),
+            nameField.textProperty()));
+
+        nameField.setOnAction(event -> submitName());
+        nameOkButton.setOnAction(event -> submitName());
+
+        namePromptFocusRing = List.of(nameField, nameOkButton);
+
+        // A stray click does not dismiss the one question the application ever asks.
+        namePromptScrim.setOnMouseClicked(MouseEvent::consume);
+    }
+
+    /** Asks for a name, once, on the first launch that finds none stored. */
+    private void openNamePromptIfUnnamed()
+    {
+        if(namePromptOpen || displayNames.load().isPresent())
+        {
+            return;
+        }
+
+        namePromptOpen = true;
+        nameField.clear();
+        fadeIn(namePromptOverlay, namePromptFade);
+        syncBackdrop();
+        nameField.requestFocus();
+    }
+
+    /**
+     * OK, or Enter in the field.
+     *
+     * <p>The name is stored and the header rewritten <em>before</em> the fade starts, so the
+     * greeting the user watches come back into focus behind the panel is already their own.</p>
+     */
+    private void submitName()
+    {
+        Optional<String> name = DisplayNameStore.normalize(nameField.getText());
+
+        if(name.isEmpty())
+        {
+            return;
+        }
+
+        displayNames.save(name.get());
+        displayName.set(name.get());
+        closeNamePrompt();
+    }
+
+    private void closeNamePrompt()
+    {
+        if(!namePromptOpen)
+        {
+            return;
+        }
+
+        namePromptOpen = false;
+        fadeOut(namePromptOverlay, namePromptFade, this::syncBackdrop);
+        ideaListView.requestFocus();
+    }
+
+    /**
+     * Ties the blur strength to the overlays' own opacity, so the window behind sharpens at
+     * exactly the rate the panel over it fades. Without this the blur would snap off at the
+     * end of a fade-out, and a snap is the one thing that makes a transition read as a bug.
+     */
+    private void buildBackdrop()
+    {
+        contentBlur.radiusProperty().bind(
+            Bindings.max(
+                Bindings.max(detailOverlay.opacityProperty(), editorOverlay.opacityProperty()),
+                namePromptOverlay.opacityProperty())
+                    .multiply(BACKDROP_BLUR));
+
+        detailBlur.radiusProperty().bind(
+            editorOverlay.opacityProperty().multiply(BACKDROP_BLUR));
+    }
+
+    /**
+     * Brings an overlay up. Interrupting a fade that is still running is normal -- reopening
+     * the panel a user just closed is one gesture -- so the fade starts from wherever the
+     * opacity currently is, and any teardown the interrupted fade was going to run is dropped.
+     */
+    private static void fadeIn(Node overlay, FadeTransition fade)
+    {
+        fade.stop();
+        fade.setOnFinished(null);
+
+        overlay.setMouseTransparent(false);
+        overlay.setVisible(true);
+        fade.setFromValue(overlay.getOpacity());
+        fade.setToValue(1);
+        fade.play();
+    }
+
+    /**
+     * Takes an overlay down, and runs {@code afterwards} once it is actually gone.
+     *
+     * <p>It stays visible for the length of the fade, which is the point, but it is made
+     * mouse-transparent for that stretch: the scrim is still lying over the whole window and
+     * would otherwise swallow a click aimed at the list showing through it.</p>
+     */
+    private static void fadeOut(Node overlay, FadeTransition fade, Runnable afterwards)
+    {
+        fade.stop();
+
+        overlay.setMouseTransparent(true);
+        fade.setFromValue(overlay.getOpacity());
+        fade.setToValue(0);
+        fade.setOnFinished(event ->
+        {
+            overlay.setVisible(false);
+            afterwards.run();
+        });
+        fade.play();
+    }
+
+    /**
+     * The backdrop behind whichever overlay is on top. The effect goes on the nodes BEHIND
+     * the overlay, never on the overlay itself -- they are siblings under the root StackPane,
+     * which is the only reason this is one line each rather than a snapshot dance.
+     *
+     * <p>Called as an overlay opens, and again only once its fade has finished, so the effect
+     * outlives the panel it belongs to by exactly the length of the fade.</p>
+     */
+    private void syncBackdrop()
+    {
+        contentRoot.setEffect(editorOpen || detailOpen || namePromptOpen ? contentBlur : null);
+
+        // The editor can open over an open detail panel, via that panel's Edit... button, so
+        // the panel is backdrop too. Its own scrim blurs to itself and stacks with the
+        // editor's, which is why neither is drawn at full strength.
+        detailOverlay.setEffect(editorOpen ? detailBlur : null);
+    }
+
+    private void openEditor(IdeaEditorOverlay.Session session)
+    {
+        editorSession = session;
+        editorOpen = true;
+
+        editorHost.getChildren().setAll(session.root());
+        fadeIn(editorOverlay, editorFade);
+        syncBackdrop();
+
+        session.view().attach(window(), ideaListView.getScene(), () -> closeEditor(session));
+    }
+
+    /**
+     * What used to be the line after showAndWait(). The editor cannot block, so the result is
+     * read here instead, from the callback the view was handed when it opened.
+     */
+    private void closeEditor(IdeaEditorOverlay.Session session)
+    {
+        if(editorSession != session)
+        {
+            return;
+        }
+
+        editorOpen = false;
+        editorClosing = true;
+        editorSession = null;
+
+        fadeOut(editorOverlay, editorFade, () -> finishEditorClose(session));
+    }
+
+    /**
+     * The other half of closing, run once the editor has finished fading out. Both lines at
+     * the top of it have to wait for that: detaching disposes the description area, which
+     * empties it on screen, and clearing the host would leave an empty box fading out where
+     * the user could still see an editor.
+     */
+    private void finishEditorClose(IdeaEditorOverlay.Session session)
+    {
+        session.view().detach();
+
+        editorHost.getChildren().clear();
+        editorClosing = false;
+        syncBackdrop();
+
+        IdeaEditorOverlay.Result result = session.result();
+
+        if(session.creating())
+        {
+            result.saved().ifPresent(idea ->
+            {
+                controller.add(idea);
+
+                if(controller.ideas().contains(idea))
+                {
+                    ideaListView.getSelectionModel().select(idea);
+                    ideaListView.scrollTo(idea);
+                }
+            });
+        }
+        else
+        {
+            result.saved().ifPresent(controller::replace);
+
+            if(result.targetMissing())
+            {
+                controller.load();
+            }
+        }
+
+        restoreFocus();
     }
 
     /**
@@ -549,24 +1022,27 @@ public class MainView
     {
         Idea idea = controller.selectedIdeaProperty().get();
 
-        if(idea == null || detailOverlay.isVisible())
+        if(idea == null || detailOpen)
         {
             return;
         }
 
         showDetail(idea);
-        detailOverlay.setVisible(true);
+        detailOpen = true;
+        fadeIn(detailOverlay, detailFade);
+        syncBackdrop();
         Platform.runLater(detailScroll::requestFocus);
     }
 
     private void closeDetail()
     {
-        if(!detailOverlay.isVisible())
+        if(!detailOpen)
         {
             return;
         }
 
-        detailOverlay.setVisible(false);
+        detailOpen = false;
+        fadeOut(detailOverlay, detailFade, this::syncBackdrop);
         ideaListView.requestFocus();
     }
 
@@ -576,7 +1052,7 @@ public class MainView
         {
             detailTitle.setText("");
             detailMeta.setText("");
-            detailBlocks.getChildren().clear();
+            descriptionWell.getChildren().clear();
             detailTags.getChildren().clear();
             return;
         }
@@ -597,45 +1073,28 @@ public class MainView
         }
         detailTags.getChildren().setAll(chips);
 
-        detailBlocks.getChildren().setAll(blockRenderer.renderAll(idea.description()));
+        descriptionWell.getChildren().setAll(descriptionRenderer.renderAll(idea.description()));
         detailScroll.setVvalue(0);
     }
 
     private void createIdea()
     {
-        IdeaEditorDialog.Result result = editorDialog.showCreate(window());
-
-        result.saved().ifPresent(idea ->
-        {
-            controller.add(idea);
-
-            if(controller.ideas().contains(idea))
-            {
-                ideaListView.getSelectionModel().select(idea);
-                ideaListView.scrollTo(idea);
-            }
-        });
-
-        restoreFocus();
-    }
-
-    private void editIdea(Idea idea)
-    {
-        if(idea == null)
+        if(editorOpen || editorClosing)
         {
             return;
         }
 
-        IdeaEditorDialog.Result result = editorDialog.showEdit(window(), idea);
+        openEditor(editors.createSession());
+    }
 
-        result.saved().ifPresent(controller::replace);
-
-        if(result.targetMissing())
+    private void editIdea(Idea idea)
+    {
+        if(idea == null || editorOpen || editorClosing)
         {
-            controller.load();
+            return;
         }
 
-        restoreFocus();
+        openEditor(editors.editSession(idea));
     }
 
     private void deleteIdea(Idea idea)
@@ -673,7 +1132,7 @@ public class MainView
      */
     private void restoreFocus()
     {
-        if(detailOverlay.isVisible())
+        if(detailOpen)
         {
             detailScroll.requestFocus();
         }
