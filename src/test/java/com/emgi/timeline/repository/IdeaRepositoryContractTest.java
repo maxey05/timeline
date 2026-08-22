@@ -3,16 +3,11 @@ package com.emgi.timeline.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.emgi.timeline.domain.content.ContentBlock;
-import com.emgi.timeline.domain.content.ImageBlock;
-import com.emgi.timeline.domain.content.LinkBlock;
-import com.emgi.timeline.domain.content.TextBlock;
 import com.emgi.timeline.domain.model.Description;
 import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.support.IdeaFixtures;
 import com.emgi.timeline.support.SequentialIdGenerator;
-import java.net.URI;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -116,22 +111,21 @@ abstract class IdeaRepositoryContractTest {
     }
 
     @Test
-    @DisplayName("a description with all three block types survives a round trip in order")
-    void allBlockTypesRoundTripInOrder() {
-        List<ContentBlock> blocks = List.of(
-                new TextBlock("Intro paragraph."),
-                new LinkBlock(URI.create("https://example.com/spec"), "The spec"),
-                new ImageBlock(URI.create("file:///home/emgi/diagram.png"), "Layer diagram"),
-                new TextBlock("Closing note."));
+    @DisplayName("a description survives a round trip byte for byte, tokens and newlines included")
+    void descriptionRoundTripsVerbatim() {
+        String body = "Intro paragraph.\n\n"
+                + "See https://example.com/spec for the details.\n"
+                + "![Layer diagram](file:///home/emgi/diagram.png)\n"
+                + "Closing note.";
         Idea idea = IdeaFixtures.anIdea()
                 .withIdNumber(1)
-                .withDescription(new Description(blocks))
+                .withDescription(Description.ofText(body))
                 .build();
 
         repository.save(idea);
 
         Idea loaded = repository.findById(idea.id()).orElseThrow();
-        assertThat(loaded.description().blocks()).containsExactlyElementsOf(blocks);
+        assertThat(loaded.description().text()).isEqualTo(body);
     }
 
     @Test
@@ -162,29 +156,28 @@ abstract class IdeaRepositoryContractTest {
 
         Idea loaded = repository.findById(idea.id()).orElseThrow();
         assertThat(loaded.tags()).isEmpty();
-        assertThat(loaded.description().blocks()).isEmpty();
+        assertThat(loaded.description().text()).isEmpty();
         assertThat(loaded).isEqualTo(idea);
     }
 
     @Test
-    @DisplayName("re-saving replaces tags and blocks rather than accumulating them")
+    @DisplayName("re-saving replaces tags and the description rather than accumulating them")
     void resaveReplacesChildCollections() {
         Idea idea = IdeaFixtures.anIdea()
                 .withIdNumber(1)
                 .withTags("one", "two", "three")
-                .withDescription(new Description(List.of(
-                        new TextBlock("a"), new TextBlock("b"), new TextBlock("c"))))
+                .withText("a\n\nb\n\nc")
                 .build();
         repository.save(idea);
 
         Idea trimmed = idea
                 .withTags(IdeaFixtures.tags("only"))
-                .withDescription(Description.ofText("just one block"));
+                .withDescription(Description.ofText("just one line"));
         repository.save(trimmed);
 
         Idea loaded = repository.findById(idea.id()).orElseThrow();
         assertThat(loaded.tags()).containsExactlyElementsOf(IdeaFixtures.tags("only"));
-        assertThat(loaded.description().blocks()).containsExactly(new TextBlock("just one block"));
+        assertThat(loaded.description().text()).isEqualTo("just one line");
     }
 
     @Test

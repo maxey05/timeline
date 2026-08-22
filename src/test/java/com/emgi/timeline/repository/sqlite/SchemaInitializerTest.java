@@ -13,22 +13,23 @@ import org.junit.jupiter.api.Test;
 class SchemaInitializerTest {
 
     @Test
-    @DisplayName("schema.sql is on the classpath and splits into the three CREATE TABLE statements")
-    void schemaSplitsIntoThreeStatements() {
+    @DisplayName("schema.sql is on the classpath and splits into the two CREATE TABLE statements")
+    void schemaSplitsIntoTwoStatements() {
         List<String> statements = SchemaInitializer.statements(SchemaInitializer.readSchema());
 
-        assertThat(statements).hasSize(3);
+        assertThat(statements).hasSize(2);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).startsWith("CREATE TABLE IF NOT EXISTS"));
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("--"));
     }
 
     @Test
-    @DisplayName("initialize creates the three tables in an empty database")
-    void createsTheThreeTables() throws SQLException {
+    @DisplayName("initialize creates the two tables in an empty database")
+    void createsTheTwoTables() throws SQLException {
         try (SqliteConnectionSource source = SqliteConnectionSource.inMemory()) {
             new SchemaInitializer().initialize(source.connection());
 
-            assertThat(tableNames(source)).contains("idea", "idea_tag", "idea_block");
+            assertThat(tableNames(source)).contains("idea", "idea_tag");
+            assertThat(tableNames(source)).doesNotContain("idea_block");
         }
     }
 
@@ -40,7 +41,7 @@ class SchemaInitializerTest {
             initializer.initialize(source.connection());
             initializer.initialize(source.connection());
 
-            assertThat(tableNames(source)).contains("idea", "idea_tag", "idea_block");
+            assertThat(tableNames(source)).contains("idea", "idea_tag");
         }
     }
 

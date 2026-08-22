@@ -6,16 +6,11 @@ import static com.emgi.timeline.support.IdeaFixtures.tags;
 
 import com.emgi.timeline.domain.command.CreateIdeaCommand;
 import com.emgi.timeline.domain.command.UpdateIdeaCommand;
-import com.emgi.timeline.domain.content.ImageBlock;
-import com.emgi.timeline.domain.content.LinkBlock;
-import com.emgi.timeline.domain.content.TextBlock;
 import com.emgi.timeline.domain.model.Description;
 import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.support.IdeaFixtures;
-import java.net.URI;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,8 +68,17 @@ class IdeaValidatorTest {
     }
 
     @Test
-    void rejectsATextBlockOverTheLengthLimit() {
-        Description tooLong = Description.ofText("x".repeat(IdeaValidator.TEXT_BLOCK_MAX_LENGTH + 1));
+    void acceptsADescriptionAtTheLengthLimit() {
+        Description atLimit =
+                Description.ofText("x".repeat(IdeaValidator.DESCRIPTION_MAX_LENGTH));
+
+        assertThat(validator.validate(command("Fine", atLimit, Set.of())).isValid()).isTrue();
+    }
+
+    @Test
+    void rejectsADescriptionOverTheLengthLimit() {
+        Description tooLong =
+                Description.ofText("x".repeat(IdeaValidator.DESCRIPTION_MAX_LENGTH + 1));
 
         ValidationResult result = validator.validate(command("Fine", tooLong, Set.of()));
 
@@ -82,49 +86,45 @@ class IdeaValidatorTest {
     }
 
     @Test
-    @DisplayName("a link without a scheme is rejected — nothing could open it")
-    void rejectsRelativeLinkTarget() {
-        Description description = new Description(List.of(
-                new LinkBlock(URI.create("example.com/page"), "No scheme")));
-
-        ValidationResult result = validator.validate(command("Fine", description, Set.of()));
-
-        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION)).hasSize(1);
-        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION).get(0))
-                .contains("Block 1").contains("link");
-    }
-
-    @Test
+    @DisplayName("an image address without a scheme is rejected — nothing could load it")
     void rejectsRelativeImageSource() {
-        Description description = new Description(List.of(
-                new ImageBlock(URI.create("pictures/cat.png"), "cat")));
+        Description description = Description.ofText("![cat](pictures/cat.png)");
 
         ValidationResult result = validator.validate(command("Fine", description, Set.of()));
 
         assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION)).hasSize(1);
-        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION).get(0)).contains("image");
+        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION).get(0)).contains("Image 1");
     }
 
     @Test
-    void acceptsAbsoluteHttpAndFileUris() {
-        Description description = new Description(List.of(
-                new LinkBlock(URI.create("https://example.com/page"), "ok"),
-                new ImageBlock(URI.create("file:///home/user/cat.png"), "cat")));
+    void acceptsAbsoluteHttpAndFileImageSources() {
+        Description description = Description.ofText(
+                "notes about https://example.com/page\n"
+                        + "![cat](file:///home/user/cat.png)\n"
+                        + "![logo](https://example.com/logo.png)");
 
         assertThat(validator.validate(command("Fine", description, Set.of())).isValid()).isTrue();
     }
 
     @Test
-    @DisplayName("the offending block is identified by its 1-based position")
-    void reportsTheBlockPosition() {
-        Description description = new Description(List.of(
-                new TextBlock("fine"),
-                new TextBlock("also fine"),
-                new LinkBlock(URI.create("nope"), "bad")));
+    @DisplayName("the offending image is identified by its 1-based position among the images")
+    void reportsTheImagePosition() {
+        Description description = Description.ofText(
+                "![ok](https://example.com/a.png)\n"
+                        + "words in between\n"
+                        + "![bad](pictures/cat.png)");
 
         ValidationResult result = validator.validate(command("Fine", description, Set.of()));
 
-        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION).get(0)).contains("Block 3");
+        assertThat(result.messagesFor(IdeaValidator.FIELD_DESCRIPTION).get(0)).contains("Image 2");
+    }
+
+    @Test
+    @DisplayName("malformed link and image syntax is text, not a validation error")
+    void malformedSyntaxIsNotAnError() {
+        Description description = Description.ofText("![ (unclosed and https://exa[mple");
+
+        assertThat(validator.validate(command("Fine", description, Set.of())).isValid()).isTrue();
     }
 
     @Test
@@ -152,7 +152,7 @@ class IdeaValidatorTest {
     @Test
     @DisplayName("every problem is reported at once, not one per round trip")
     void reportsAllErrorsTogether() {
-        Description description = new Description(List.of(new LinkBlock(URI.create("nope"), "bad")));
+        Description description = Description.ofText("![bad](pictures/cat.png)");
 
         ValidationResult result = validator.validate(command("  ", description, tags("java")));
 

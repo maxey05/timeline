@@ -3,48 +3,30 @@ package com.emgi.timeline.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.emgi.timeline.domain.content.ContentBlock;
-import com.emgi.timeline.domain.content.ImageBlock;
-import com.emgi.timeline.domain.content.LinkBlock;
-import com.emgi.timeline.domain.content.TextBlock;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class DescriptionTest {
 
-    private static final URI SOMEWHERE = URI.create("https://example.com/a");
-
     @Test
-    void emptyDescriptionHasNoBlocks() {
-        assertThat(Description.empty().blocks()).isEmpty();
+    void emptyDescriptionHasNoText() {
+        assertThat(Description.empty().text()).isEmpty();
         assertThat(Description.empty().isEmpty()).isTrue();
     }
 
     @Test
-    void ofTextHoldsASingleTextBlock() {
-        Description description = Description.ofText("Hello");
-        assertThat(description.blocks()).containsExactly(new TextBlock("Hello"));
+    void ofTextHoldsTheTextVerbatim() {
+        assertThat(Description.ofText("Hello").text()).isEqualTo("Hello");
     }
 
     @Test
-    @DisplayName("the block list is an immutable copy, so callers cannot mutate a Description")
-    void blocksAreDefensivelyCopied() {
-        List<ContentBlock> source = new ArrayList<>();
-        source.add(new TextBlock("one"));
-        Description description = new Description(source);
-
-        source.add(new TextBlock("two"));
-
-        assertThat(description.blocks()).hasSize(1);
-        assertThatThrownBy(() -> description.blocks().add(new TextBlock("three")))
-                .isInstanceOf(UnsupportedOperationException.class);
+    @DisplayName("a description of nothing but whitespace counts as empty")
+    void whitespaceOnlyDescriptionIsEmpty() {
+        assertThat(new Description("   \n\t ").isEmpty()).isTrue();
     }
 
     @Test
-    void rejectsNullBlocks() {
+    void rejectsNullText() {
         assertThatThrownBy(() -> new Description(null)).isInstanceOf(NullPointerException.class);
     }
 
@@ -59,20 +41,28 @@ class DescriptionTest {
     }
 
     @Test
-    @DisplayName("preview skips link and image blocks entirely")
-    void previewSkipsNonTextBlocks() {
-        Description description = new Description(List.of(
-                new LinkBlock(SOMEWHERE, "A link"),
-                new TextBlock("the text"),
-                new ImageBlock(SOMEWHERE, "alt")));
+    @DisplayName("preview drops image tokens rather than showing their raw source")
+    void previewSkipsImages() {
+        Description description = Description.ofText(
+                "before\n![a diagram](file:///home/emgi/diagram.png)\nafter");
 
-        assertThat(description.plainTextPreview(50)).isEqualTo("the text");
+        assertThat(description.plainTextPreview(50)).isEqualTo("before after");
     }
 
     @Test
-    void previewJoinsMultipleTextBlocksWithASingleSpace() {
-        Description description = new Description(List.of(
-                new TextBlock("first"), new TextBlock("second")));
+    @DisplayName("preview keeps a link's visible text, because that is what the user typed")
+    void previewKeepsLinkText() {
+        Description description = Description.ofText("see https://example.com/spec for details");
+
+        assertThat(description.plainTextPreview(60))
+                .isEqualTo("see https://example.com/spec for details");
+    }
+
+    @Test
+    @DisplayName("paragraphs separated by an image are joined with a single space")
+    void previewJoinsParagraphsWithASingleSpace() {
+        Description description = Description.ofText(
+                "first\n![](https://example.com/a.png)\nsecond");
 
         assertThat(description.plainTextPreview(50)).isEqualTo("first second");
     }
@@ -128,5 +118,50 @@ class DescriptionTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> description.plainTextPreview(-1))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("a description with no content at all is not an images-only one")
+    void emptyDescriptionHasNoImages() {
+        assertThat(Description.empty().hasOnlyImages()).isFalse();
+        assertThat(new Description("  \n ").hasOnlyImages()).isFalse();
+    }
+
+    @Test
+    void textOnlyDescriptionIsNotImagesOnly() {
+        assertThat(Description.ofText("Just words").hasOnlyImages()).isFalse();
+    }
+
+    @Test
+    @DisplayName("one image on its own is images-only")
+    void aSingleImageIsImagesOnly() {
+        Description description = Description.ofText("![](file:///tmp/shot.png)");
+
+        assertThat(description.hasOnlyImages()).isTrue();
+        assertThat(description.plainTextPreview(40)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("several images, blank lines and all, are still images-only")
+    void severalImagesAreImagesOnly() {
+        Description description = Description.ofText(
+                "![](file:///tmp/one.png)\n\n![alt](file:///tmp/two.png)\n");
+
+        assertThat(description.hasOnlyImages()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a single word beside the pictures is enough to stop it being images-only")
+    void imagesWithAnyTextAreNotImagesOnly() {
+        Description description = Description.ofText(
+                "Look:\n![](file:///tmp/one.png)");
+
+        assertThat(description.hasOnlyImages()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a malformed image token is text, so it is not images-only")
+    void aMalformedImageTokenIsNotAnImage() {
+        assertThat(Description.ofText("![](file:///tmp/one.png").hasOnlyImages()).isFalse();
     }
 }

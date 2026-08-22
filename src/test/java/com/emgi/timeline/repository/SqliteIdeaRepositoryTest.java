@@ -69,22 +69,20 @@ class SqliteIdeaRepositoryTest extends IdeaRepositoryContractTest
     }
 
     @Test
-    @DisplayName("deleting an idea cascades to its tag and block rows")
+    @DisplayName("deleting an idea cascades to its tag rows")
     void deleteCascadesToChildRows() throws SQLException {
         Idea idea = IdeaFixtures.anIdea()
                 .withIdNumber(1)
                 .withTags("java", "storage")
-                .withText("A block that must not outlive its idea.")
+                .withText("Text that must not outlive its idea.")
                 .build();
         repository().save(idea);
         assertThat(rowCount("idea_tag")).isEqualTo(2L);
-        assertThat(rowCount("idea_block")).isEqualTo(1L);
 
         repository().delete(idea.id());
 
         assertThat(rowCount("idea")).isEqualTo(0L);
         assertThat(rowCount("idea_tag")).isEqualTo(0L);
-        assertThat(rowCount("idea_block")).isEqualTo(0L);
     }
 
     @Test
