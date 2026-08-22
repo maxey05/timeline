@@ -1,20 +1,21 @@
 package com.emgi.timeline.view;
 
-import com.emgi.timeline.controller.BlockDraft;
-import com.emgi.timeline.controller.BlockKind;
 import com.emgi.timeline.controller.IdeaEditorController;
 import com.emgi.timeline.controller.IdeaEditorController.SaveResult;
 import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
-import com.emgi.timeline.view.content.BlockEditorFactory;
-import com.emgi.timeline.view.content.BlockEditorFactory.BlockRow;
+import com.emgi.timeline.service.ImageStore;
+import com.emgi.timeline.view.content.DescriptionArea;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
@@ -22,19 +23,30 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.KeyCode;
+import javafx.scene.image.Image;
+import javafx.scene.input.Clipboard;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
+import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.reactfx.Subscription;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public class IdeaEditorView
@@ -47,13 +59,29 @@ public class IdeaEditorView
     private static final ButtonType KEEP_EDITING =
             new ButtonType("Keep editing", ButtonBar.ButtonData.CANCEL_CLOSE);
 
+    private static final List<String> IMAGE_EXTENSIONS =
+            List.of("png", "jpg", "jpeg", "gif", "bmp");
+
     private final IdeaEditorController controller;
 
-    private final List<BlockRow> rows = new ArrayList<>();
+    private final ImageStore imageStore;
 
-    private Stage stage;
+    /*
+     * What the Stage used to be. An owner to parent alerts on, the scene carrying this
+     * editor's shortcut filter, and a way to close -- MainView hides the overlay.
+     */
+    private Window owner;
 
-    private BlockEditorFactory blockEditors;
+    private Scene scene;
+
+    private Runnable closeAction;
+
+    /*
+     * Held rather than written as this::onEditorKey at both call sites: a method reference
+     * is a fresh object each time it is evaluated, so removeEventFilter would silently
+     * remove nothing and every open would leave another filter on the scene.
+     */
+    private final EventHandler<KeyEvent> keyFilter = this::onEditorKey;
 
     @FXML
     private TextField titleField;
@@ -74,19 +102,23 @@ public class IdeaEditorView
     private HBox statusBox;
 
     @FXML
-    private ScrollPane blockScroll;
+    private StackPane descriptionStack;
+
+    /*
+     * NOT @FXML. A GenericStyledArea is generic in three type parameters and has no no-arg
+     * constructor FXML could call, so the writing surface is built in code and dropped into
+     * the descriptionStack placeholder that IS injected.
+     */
+    private DescriptionArea descriptionArea;
+
+    /** Pushes edits into the controller. Held so detach can unsubscribe it. */
+    private Subscription descriptionChanges;
+
+    /** True while load() is rewriting the document, so its own edits are not pushed back. */
+    private boolean loadingDescription;
 
     @FXML
-    private VBox blockList;
-
-    @FXML
-    private Button addTextButton;
-
-    @FXML
-    private Button addLinkButton;
-
-    @FXML
-    private Button addImageButton;
+    private Button insertImageButton;
 
     @FXML
     private Label descriptionErrorLabel;
@@ -97,48 +129,119 @@ public class IdeaEditorView
     @FXML
     private Button cancelButton;
 
-    public IdeaEditorView(IdeaEditorController controller)
+    public IdeaEditorView(IdeaEditorController controller, ImageStore imageStore)
     {
         this.controller = Objects.requireNonNull(controller, "controller");
+        this.imageStore = Objects.requireNonNull(imageStore, "imageStore");
     }
 
-    void setStage(Stage stage)
+    /**
+     * Hands the view what the Stage used to give it. There is no onCloseRequest hook on an
+     * overlay, so the Esc route in is {@link #requestClose()}, which MainView calls from its
+     * own scene filter.
+     */
+    void attach(Window owner, Scene scene, Runnable closeAction)
     {
-        this.stage = Objects.requireNonNull(stage, "stage");
+        this.owner = owner;
+        this.scene = Objects.requireNonNull(scene, "scene");
+        this.closeAction = Objects.requireNonNull(closeAction, "closeAction");
 
-        stage.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::onEditorKey);
-
-        stage.setOnCloseRequest(event ->
-        {
-            if(!confirmDiscard())
-            {
-                event.consume();
-            }
-        });
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, keyFilter);
 
         Platform.runLater(titleField::requestFocus);
+    }
+
+    /** Takes the shortcut filter back off the shared scene. Closing without this leaks it. */
+    void detach()
+    {
+        if(scene != null)
+        {
+            scene.removeEventFilter(KeyEvent.KEY_PRESSED, keyFilter);
+        }
+
+        /*
+         * Both are required. The subscription would keep pushing edits into a controller
+         * whose editor is gone, and GenericStyledArea holds internal subscriptions of its
+         * own that only dispose() releases -- a TextArea never needed either.
+         */
+        if(descriptionChanges != null)
+        {
+            descriptionChanges.unsubscribe();
+            descriptionChanges = null;
+        }
+
+        if(descriptionArea != null)
+        {
+            descriptionArea.dispose();
+        }
+
+        scene = null;
+        closeAction = null;
+    }
+
+    /** Esc or Cancel: confirm before throwing away anything the user typed. */
+    void requestClose()
+    {
+        if(confirmDiscard())
+        {
+            close();
+        }
+    }
+
+    /**
+     * Tab cycles within these while the editor is open. The tag chips' remove buttons are
+     * deliberately out of the ring: they appear and disappear as tags are added, and a ring
+     * that changes shape under the user is worse than one that needs a click.
+     */
+    List<Node> focusRing()
+    {
+        List<Node> ring = new ArrayList<>();
+
+        ring.add(titleField);
+        ring.add(tagField);
+        ring.addAll(statusBox.getChildren());
+        ring.add(descriptionArea);
+        ring.add(insertImageButton);
+        ring.add(cancelButton);
+        ring.add(saveButton);
+
+        return List.copyOf(ring);
+    }
+
+    private void close()
+    {
+        if(closeAction != null)
+        {
+            closeAction.run();
+        }
     }
 
     @FXML
     private void initialize()
     {
-        if(titleField == null || tagPane == null || statusBox == null || blockScroll == null
-            || blockList == null || addTextButton == null || addLinkButton == null
-            || addImageButton == null || saveButton == null || cancelButton == null)
+        if(titleField == null || tagPane == null || statusBox == null || descriptionStack == null
+            || insertImageButton == null || saveButton == null
+            || cancelButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
             );
         }
 
+        titleField.getStyleClass().add("title-input");
         titleField.textProperty().bindBidirectional(controller.titleProperty());
+
+        buildDescriptionArea();
+
+        insertImageButton.setOnAction(event -> chooseImages());
+        insertImageButton.setTooltip(new Tooltip("Insert an image…  (Ctrl+I)"));
+        insertImageButton.setAccessibleText("Insert an image");
 
         bindError(titleErrorLabel, controller.titleErrorProperty());
         bindError(tagsErrorLabel, controller.tagsErrorProperty());
         bindError(descriptionErrorLabel, controller.descriptionErrorProperty());
 
         buildStatusControls();
-        buildBlockEditor();
 
         renderTags();
         controller.tags().addListener((ListChangeListener<Tag>) change -> renderTags());
@@ -152,18 +255,46 @@ public class IdeaEditorView
         });
 
         saveButton.setOnAction(event -> onSave());
-        cancelButton.setOnAction(event -> attemptCancel());
+        cancelButton.setOnAction(event -> requestClose());
 
         saveButton.setTooltip(new Tooltip("Save  (Ctrl+Enter)"));
         cancelButton.setTooltip(new Tooltip("Cancel  (Esc)"));
     }
 
-    private void attemptCancel()
+    /**
+     * Builds the writing surface and keeps it and the controller in step.
+     *
+     * <p>There is no bindBidirectional here, and there cannot be: the document is not a
+     * String property, so the two directions are different operations. Loading parses a
+     * string into a document; editing serialises a document back into a string. The guard
+     * flag is what stops the first from triggering the second.
+     *
+     * <p>The area goes inside a VirtualizedScrollPane rather than scrolling itself. That is
+     * how RichTextFX scrolls -- the area renders only the paragraphs actually on screen, and
+     * the scroll pane is the thing that knows which those are.
+     */
+    private void buildDescriptionArea()
     {
-        if(confirmDiscard())
+        descriptionArea = new DescriptionArea();
+
+        VirtualizedScrollPane<DescriptionArea> scroll =
+            new VirtualizedScrollPane<>(descriptionArea);
+        scroll.getStyleClass().add("description-scroll");
+
+        // Index 0: the insert-image button is already in the stack and must stay on top.
+        descriptionStack.getChildren().add(0, scroll);
+
+        loadingDescription = true;
+        descriptionArea.load(controller.descriptionProperty().get());
+        loadingDescription = false;
+
+        descriptionChanges = descriptionArea.plainTextChanges().subscribe(change ->
         {
-            stage.close();
-        }
+            if(!loadingDescription)
+            {
+                controller.descriptionProperty().set(descriptionArea.describedText());
+            }
+        });
     }
 
     private boolean confirmDiscard()
@@ -175,7 +306,7 @@ public class IdeaEditorView
 
         Alert confirm = new Alert(AlertType.CONFIRMATION);
         Theme.applyTo(confirm);
-        confirm.initOwner(stage);
+        confirm.initOwner(owner);
         confirm.setTitle("Timeline");
         confirm.setHeaderText("Discard your changes?");
         confirm.setContentText(controller.isEditing()
@@ -191,22 +322,15 @@ public class IdeaEditorView
         return confirm.showAndWait().filter(choice -> choice == DISCARD).isPresent();
     }
 
+    /*
+     * A Scene filter, not a handler: the writing surface consumes most keys while they
+     * bubble, and accelerators only fire on unconsumed events. Filters run top-down, so this
+     * sees the keystroke first. That is also why Ctrl+V is intercepted here rather than on
+     * the area -- and why it must NOT consume when the clipboard holds no picture, so the
+     * area's own paste still runs and a copied link lands as text.
+     */
     private void onEditorKey(KeyEvent event)
     {
-        if(event.isAltDown() && event.getCode() == KeyCode.UP)
-        {
-            moveFocusedBlock(true);
-            event.consume();
-            return;
-        }
-
-        if(event.isAltDown() && event.getCode() == KeyCode.DOWN)
-        {
-            moveFocusedBlock(false);
-            event.consume();
-            return;
-        }
-
         if(!event.isShortcutDown())
         {
             return;
@@ -219,20 +343,17 @@ public class IdeaEditorView
                 onSave();
                 event.consume();
             }
-            case T ->
-            {
-                addBlock(BlockKind.TEXT);
-                event.consume();
-            }
-            case L ->
-            {
-                addBlock(BlockKind.LINK);
-                event.consume();
-            }
             case I ->
             {
-                addBlock(BlockKind.IMAGE);
+                chooseImages();
                 event.consume();
+            }
+            case V ->
+            {
+                if(isDescriptionFocused() && pasteImages())
+                {
+                    event.consume();
+                }
             }
             default ->
             {
@@ -240,54 +361,148 @@ public class IdeaEditorView
         }
     }
 
-    private void moveFocusedBlock(boolean up)
+    private boolean isDescriptionFocused()
     {
-        BlockDraft draft = focusedDraft();
+        return descriptionArea != null && descriptionArea.isFocused();
+    }
 
-        if(draft == null)
+    /** Copies any picture on the clipboard into the store. False means "not a picture". */
+    private boolean pasteImages()
+    {
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        List<URI> stored = new ArrayList<>();
+
+        try
+        {
+            if(clipboard.hasFiles())
+            {
+                for(File file : clipboard.getFiles())
+                {
+                    if(isImageFile(file))
+                    {
+                        stored.add(imageStore.copyFrom(file.toPath()));
+                    }
+                }
+            }
+
+            if(stored.isEmpty() && clipboard.hasImage())
+            {
+                byte[] png = toPngBytes(clipboard.getImage());
+
+                if(png != null)
+                {
+                    stored.add(imageStore.store(png, ImageStore.DEFAULT_EXTENSION));
+                }
+            }
+        }
+        catch(UncheckedIOException e)
+        {
+            showImageFailure(e);
+            return true;
+        }
+
+        if(stored.isEmpty())
+        {
+            return false;
+        }
+
+        insertImages(stored);
+        return true;
+    }
+
+    private void chooseImages()
+    {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Insert an image");
+        chooser.getExtensionFilters().add(
+            new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"));
+
+        List<File> chosen = chooser.showOpenMultipleDialog(owner);
+
+        if(chosen == null || chosen.isEmpty())
         {
             return;
         }
 
-        if(up)
-        {
-            controller.moveBlockUp(draft);
-        }
-        else
-        {
-            controller.moveBlockDown(draft);
-        }
+        List<URI> stored = new ArrayList<>(chosen.size());
 
-        focusBlock(draft);
-    }
-
-    private BlockDraft focusedDraft()
-    {
-        Node node = stage.getScene().getFocusOwner();
-
-        while(node != null)
+        try
         {
-            if(node.getUserData() instanceof BlockDraft draft)
+            for(File file : chosen)
             {
-                return draft;
-            }
-
-            node = node.getParent();
-        }
-
-        return null;
-    }
-
-    private void focusBlock(BlockDraft draft)
-    {
-        for(BlockRow row : rows)
-        {
-            if(row.draft() == draft)
-            {
-                row.focusTarget().requestFocus();
-                return;
+                stored.add(imageStore.copyFrom(file.toPath()));
             }
         }
+        catch(UncheckedIOException e)
+        {
+            showImageFailure(e);
+            return;
+        }
+
+        insertImages(stored);
+        descriptionArea.requestFocus();
+    }
+
+    /*
+     * All of the caret and newline bookkeeping this used to do moved into DescriptionArea,
+     * where the document actually lives. What is left is the part that belongs to the view:
+     * put the caret back where the user was typing.
+     */
+    private void insertImages(List<URI> sources)
+    {
+        descriptionArea.insertImages(sources);
+    }
+
+    private static boolean isImageFile(File file)
+    {
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        int dot = name.lastIndexOf('.');
+
+        return dot >= 0 && IMAGE_EXTENSIONS.contains(name.substring(dot + 1));
+    }
+
+    private static byte[] toPngBytes(Image image)
+    {
+        if(image == null)
+        {
+            return null;
+        }
+
+        BufferedImage buffered = SwingFXUtils.fromFXImage(image, null);
+
+        if(buffered == null)
+        {
+            return null;
+        }
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        try
+        {
+            if(!ImageIO.write(buffered, "png", bytes))
+            {
+                return null;
+            }
+        }
+        catch(IOException e)
+        {
+            throw new UncheckedIOException("Could not encode the pasted image as PNG", e);
+        }
+
+        return bytes.toByteArray();
+    }
+
+    private void showImageFailure(UncheckedIOException e)
+    {
+        Alert alert = new Alert(AlertType.ERROR);
+        Theme.applyTo(alert);
+        alert.initOwner(owner);
+        alert.setTitle("Timeline");
+        alert.setHeaderText("Timeline couldn't save that image.");
+        alert.setContentText("Images are copied into:\n"
+            + imageStore.directory()
+            + "\n\nDetails: " + e.getMessage());
+        alert.showAndWait();
     }
 
     private static void bindError(Label label, ObservableValue<String> message)
@@ -329,48 +544,6 @@ public class IdeaEditorView
         });
     }
 
-    private void buildBlockEditor()
-    {
-        blockEditors = new BlockEditorFactory(controller);
-
-        rebuildBlocks();
-        controller.blocks().addListener((ListChangeListener<BlockDraft>) change -> rebuildBlocks());
-
-        addTextButton.setOnAction(event -> addBlock(BlockKind.TEXT));
-        addLinkButton.setOnAction(event -> addBlock(BlockKind.LINK));
-        addImageButton.setOnAction(event -> addBlock(BlockKind.IMAGE));
-
-        addTextButton.setTooltip(new Tooltip("Add a text block  (Ctrl+T)"));
-        addLinkButton.setTooltip(new Tooltip("Add a link block  (Ctrl+L)"));
-        addImageButton.setTooltip(new Tooltip("Add an image block  (Ctrl+I)"));
-
-        blockScroll.setFocusTraversable(false);
-    }
-
-    private void rebuildBlocks()
-    {
-        int count = controller.blocks().size();
-
-        rows.clear();
-        List<Node> nodes = new ArrayList<>(count);
-
-        for(int i = 0; i < count; i++)
-        {
-            BlockRow row = blockEditors.create(controller.blocks().get(i), i == 0, i == count - 1);
-            rows.add(row);
-            nodes.add(row.node());
-        }
-
-        blockList.getChildren().setAll(nodes);
-    }
-
-    private void addBlock(BlockKind kind)
-    {
-        BlockDraft draft = controller.addBlock(kind);
-        blockScroll.setVvalue(1.0);
-        focusBlock(draft);
-    }
-
     private void renderTags()
     {
         List<Node> chips = new ArrayList<>(controller.tags().size());
@@ -406,7 +579,7 @@ public class IdeaEditorView
 
         switch(result)
         {
-            case SAVED -> stage.close();
+            case SAVED -> close();
 
             case INVALID -> titleField.requestFocus();
 
@@ -418,11 +591,11 @@ public class IdeaEditorView
     {
         Alert alert = new Alert(AlertType.WARNING);
         Theme.applyTo(alert);
-        alert.initOwner(stage);
+        alert.initOwner(owner);
         alert.setTitle("Timeline");
         alert.setHeaderText("This idea no longer exists.");
         alert.setContentText("It was deleted somewhere else, so your changes weren't saved.");
         alert.showAndWait();
-        stage.close();
+        close();
     }
 }
