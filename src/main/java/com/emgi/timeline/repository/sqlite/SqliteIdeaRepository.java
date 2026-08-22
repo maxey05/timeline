@@ -1,6 +1,5 @@
 package com.emgi.timeline.repository.sqlite;
 
-import com.emgi.timeline.domain.content.ContentBlock;
 import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.IdeaId;
 import com.emgi.timeline.domain.model.Tag;
@@ -22,29 +21,21 @@ import java.util.Set;
 public final class SqliteIdeaRepository implements IdeaRepository
 {
     private static final String UPSERT_IDEA = """
-            INSERT INTO idea (id, title, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO idea (id, title, description, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
-                title      = excluded.title,
-                status     = excluded.status,
-                created_at = excluded.created_at,
-                updated_at = excluded.updated_at
+                title       = excluded.title,
+                description = excluded.description,
+                status      = excluded.status,
+                created_at  = excluded.created_at,
+                updated_at  = excluded.updated_at
             """;
     private static final String DELETE_TAGS = "DELETE FROM idea_tag WHERE idea_id = ?";
     private static final String INSERT_TAG = "INSERT INTO idea_tag (idea_id, tag_name) VALUES (?, ?)";
-    private static final String DELETE_BLOCKS = "DELETE FROM idea_block WHERE idea_id = ?";
-    private static final String INSERT_BLOCK = """
-            INSERT INTO idea_block (idea_id, position, type, text, uri, label, alt_text)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """;
     private static final String SELECT_IDEA = "SELECT * FROM idea WHERE id = ?";
     private static final String SELECT_ALL_IDEAS = "SELECT * FROM idea";
     private static final String SELECT_TAGS = "SELECT tag_name FROM idea_tag WHERE idea_id = ?";
     private static final String SELECT_ALL_TAGS = "SELECT idea_id, tag_name FROM idea_tag";
-    private static final String SELECT_BLOCKS =
-            "SELECT * FROM idea_block WHERE idea_id = ? ORDER BY position";
-    private static final String SELECT_ALL_BLOCKS =
-            "SELECT * FROM idea_block ORDER BY idea_id, position";
     private static final String DELETE_IDEA = "DELETE FROM idea WHERE id = ?";
     private static final String COUNT_IDEAS = "SELECT COUNT(*) FROM idea";
 
@@ -81,7 +72,6 @@ public final class SqliteIdeaRepository implements IdeaRepository
         {
             writeIdeaRow(connection, idea);
             replaceTags(connection, idea);
-            replaceBlocks(connection, idea);
             connection.commit();
         }
         catch (SQLException e)
@@ -127,29 +117,6 @@ public final class SqliteIdeaRepository implements IdeaRepository
         }
     }
 
-    private void replaceBlocks(Connection connection, Idea idea) throws SQLException
-    {
-        try (PreparedStatement delete = connection.prepareStatement(DELETE_BLOCKS))
-        {
-            delete.setString(1, idea.id().toString());
-            delete.executeUpdate();
-        }
-        List<ContentBlock> blocks = idea.description().blocks();
-        if (blocks.isEmpty())
-            {
-            return;
-        }
-        try (PreparedStatement insert = connection.prepareStatement(INSERT_BLOCK))
-        {
-            for (int position = 0; position < blocks.size(); position++)
-            {
-                rowMapper.bindBlock(insert, idea.id(), position, blocks.get(position));
-                insert.addBatch();
-            }
-            insert.executeBatch();
-        }
-    }
-
     private static void rollback(Connection connection, IdeaId id, SQLException cause)
     {
         try
@@ -187,7 +154,7 @@ public final class SqliteIdeaRepository implements IdeaRepository
                 if (!rows.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(rowMapper.toIdea(rows, tagsOf(connection, id), blocksOf(connection, id)));
+                return Optional.of(rowMapper.toIdea(rows, tagsOf(connection, id)));
             }
         }
         catch (SQLException e)
@@ -213,39 +180,18 @@ public final class SqliteIdeaRepository implements IdeaRepository
         return tags;
     }
 
-    private List<ContentBlock> blocksOf(Connection connection, IdeaId id) throws SQLException
-    {
-        List<ContentBlock> blocks = new ArrayList<>();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_BLOCKS))
-        {
-            statement.setString(1, id.toString());
-            try (ResultSet rows = statement.executeQuery())
-            {
-                while (rows.next())
-                {
-                    blocks.add(rowMapper.toBlock(rows));
-                }
-            }
-        }
-        return blocks;
-    }
-
     @Override
     public List<Idea> findAll()
     {
         Connection connection = connectionSource.connection();
         try {
             Map<String, Set<Tag>> tagsByIdea = allTags(connection);
-            Map<String, List<ContentBlock>> blocksByIdea = allBlocks(connection);
             List<Idea> ideas = new ArrayList<>();
             try (PreparedStatement statement = connection.prepareStatement(SELECT_ALL_IDEAS);
                  ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) {
                     String id = rows.getString("id");
-                    ideas.add(rowMapper.toIdea(
-                            rows,
-                            tagsByIdea.getOrDefault(id, Set.of()),
-                            blocksByIdea.getOrDefault(id, List.of())));
+                    ideas.add(rowMapper.toIdea(rows, tagsByIdea.getOrDefault(id, Set.of())));
                 }
             }
             return List.copyOf(ideas);
@@ -264,18 +210,6 @@ public final class SqliteIdeaRepository implements IdeaRepository
             }
         }
         return tagsByIdea;
-    }
-
-    private Map<String, List<ContentBlock>> allBlocks(Connection connection) throws SQLException {
-        Map<String, List<ContentBlock>> blocksByIdea = new LinkedHashMap<>();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_ALL_BLOCKS);
-             ResultSet rows = statement.executeQuery()) {
-            while (rows.next()) {
-                blocksByIdea.computeIfAbsent(rows.getString("idea_id"), key -> new ArrayList<>())
-                        .add(rowMapper.toBlock(rows));
-            }
-        }
-        return blocksByIdea;
     }
 
     @Override
