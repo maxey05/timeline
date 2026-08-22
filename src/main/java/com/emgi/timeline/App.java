@@ -27,6 +27,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 import java.io.IOException;
 import java.net.URL;
@@ -87,6 +88,7 @@ public class App extends Application
         Scene scene = new Scene(root, 900, 640);
         Theme.applyTo(scene);
 
+        stage.initStyle(StageStyle.UNDECORATED);
         stage.setTitle("Timeline");
         stage.setMinWidth(820);
         stage.setMinHeight(560);
