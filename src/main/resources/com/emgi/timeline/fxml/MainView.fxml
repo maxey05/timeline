@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ChoiceBox?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ScrollPane?>
@@ -12,75 +12,109 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
 
-<BorderPane xmlns="http://javafx.com/javafx/21"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.emgi.timeline.view.MainView"
-            styleClass="root-pane">
+<!--
+    The root is a StackPane so the detail panel can be laid over the whole window:
+    the scrim dims everything the BorderPane draws, and the panel floats above it.
+    The BorderPane below is the application proper and is unchanged apart from
+    having lost its <right> detail region.
+-->
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.emgi.timeline.view.MainView"
+           styleClass="root-stack">
 
-    <top>
-        <VBox>
-            <HBox styleClass="app-header" alignment="CENTER_LEFT">
-                <Label styleClass="app-title" text="Timeline"/>
-                <Region HBox.hgrow="ALWAYS"/>
-                <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
+    <BorderPane fx:id="contentRoot" styleClass="root-pane">
+
+        <top>
+            <VBox>
+                <HBox styleClass="app-header" alignment="CENTER_LEFT">
+                    <Label styleClass="app-title" text="Timeline"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
+
+                    <!--
+                        Settings. A 28px square so it matches the primary button's height, and a
+                        stroked SVGPath rather than a text glyph: Arimo has no gear, and the four
+                        glyphs already falling through to Segoe UI Symbol are wart enough.
+                        The path is authored on a 24-unit grid and scaled to 16px; the StackPane
+                        is pinned to 16px in base.css so the scale never moves the layout.
+                    -->
+                    <Button fx:id="settingsButton" styleClass="icon-button">
+                        <graphic>
+                            <StackPane styleClass="icon-box">
+                                <SVGPath styleClass="icon-glyph"
+                                         scaleX="0.6667"
+                                         scaleY="0.6667"
+                                         content="M 19.4 15 a 1.65 1.65 0 0 0 0.33 1.82 l 0.06 0.06 a 2 2 0 0 1 0 2.83 2 2 0 0 1 -2.83 0 l -0.06 -0.06 a 1.65 1.65 0 0 0 -1.82 -0.33 1.65 1.65 0 0 0 -1 1.51 V 21 a 2 2 0 0 1 -2 2 2 2 0 0 1 -2 -2 v -0.09 A 1.65 1.65 0 0 0 9 19.4 a 1.65 1.65 0 0 0 -1.82 0.33 l -0.06 0.06 a 2 2 0 0 1 -2.83 0 2 2 0 0 1 0 -2.83 l 0.06 -0.06 a 1.65 1.65 0 0 0 0.33 -1.82 1.65 1.65 0 0 0 -1.51 -1 H 3 a 2 2 0 0 1 -2 -2 2 2 0 0 1 2 -2 h 0.09 A 1.65 1.65 0 0 0 4.6 9 a 1.65 1.65 0 0 0 -0.33 -1.82 l -0.06 -0.06 a 2 2 0 0 1 0 -2.83 2 2 0 0 1 2.83 0 l 0.06 0.06 a 1.65 1.65 0 0 0 1.82 0.33 H 9 a 1.65 1.65 0 0 0 1 -1.51 V 3 a 2 2 0 0 1 2 -2 2 2 0 0 1 2 2 v 0.09 a 1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82 -0.33 l 0.06 -0.06 a 2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83 l -0.06 0.06 a 1.65 1.65 0 0 0 -0.33 1.82 V 9 a 1.65 1.65 0 0 0 1.51 1 H 21 a 2 2 0 0 1 2 2 2 2 0 0 1 -2 2 h -0.09 a 1.65 1.65 0 0 0 -1.51 1 z M 15 12 a 3 3 0 1 1 -6 0 3 3 0 0 1 6 0 z"/>
+                            </StackPane>
+                        </graphic>
+                    </Button>
+                </HBox>
+
+                <VBox styleClass="filter-bar">
+                    <HBox styleClass="toolbar" alignment="CENTER_LEFT">
+                        <TextField fx:id="searchField"
+                                   styleClass="search-field"
+                                   promptText="Search titles…"
+                                   HBox.hgrow="ALWAYS"/>
+                        <ComboBox fx:id="sortChoice" styleClass="sort-choice"/>
+                    </HBox>
+
+                    <HBox fx:id="tagFilterRow" styleClass="tag-filter-row" alignment="TOP_LEFT">
+                        <Label styleClass="toolbar-label" text="Tags"/>
+                        <FlowPane fx:id="tagFilterPane" styleClass="tag-filter-pane" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                </VBox>
+            </VBox>
+        </top>
+
+        <center>
+            <StackPane styleClass="list-container">
+                <ListView fx:id="ideaListView" styleClass="idea-list"/>
+
+                <VBox fx:id="emptyState" styleClass="empty-state" alignment="CENTER">
+                    <Label styleClass="empty-state-title" text="No ideas yet"/>
+                    <Label styleClass="empty-state-hint" text="Your ideas will appear here."/>
+                </VBox>
+
+                <VBox fx:id="noMatchesState" styleClass="no-matches" alignment="CENTER">
+                    <Label styleClass="no-matches-title" text="No ideas match your filters"/>
+                    <Button fx:id="clearFiltersButton" styleClass="secondary-button" text="Clear filters"/>
+                </VBox>
+            </StackPane>
+        </center>
+
+    </BorderPane>
+
+    <StackPane fx:id="detailOverlay" styleClass="detail-overlay" visible="false">
+
+        <Region fx:id="detailScrim" styleClass="detail-scrim"/>
+
+        <VBox fx:id="detailPanel" styleClass="detail-panel">
+
+            <HBox styleClass="detail-panel-header" alignment="TOP_LEFT">
+                <VBox styleClass="detail-heading" HBox.hgrow="ALWAYS">
+                    <Label fx:id="detailTitle" styleClass="detail-title" wrapText="true"/>
+                    <Label fx:id="detailMeta" styleClass="detail-meta"/>
+                </VBox>
+                <Button fx:id="detailCloseButton" styleClass="detail-close-button" text="✕"/>
             </HBox>
 
-            <VBox styleClass="filter-bar">
-                <HBox styleClass="toolbar" alignment="CENTER_LEFT">
-                    <TextField fx:id="searchField"
-                               styleClass="search-field"
-                               promptText="Search titles…"
-                               HBox.hgrow="ALWAYS"/>
-                    <Label styleClass="toolbar-label" text="Sort"/>
-                    <ChoiceBox fx:id="sortChoice" styleClass="sort-choice"/>
-                </HBox>
+            <FlowPane fx:id="detailTags" styleClass="idea-tags"/>
 
-                <HBox fx:id="tagFilterRow" styleClass="tag-filter-row" alignment="TOP_LEFT">
-                    <Label styleClass="toolbar-label" text="Tags"/>
-                    <FlowPane fx:id="tagFilterPane" styleClass="tag-filter-pane" HBox.hgrow="ALWAYS"/>
-                </HBox>
-            </VBox>
-        </VBox>
-    </top>
+            <ScrollPane fx:id="detailScroll" styleClass="detail-scroll"
+                        fitToWidth="true" VBox.vgrow="ALWAYS">
+                <VBox fx:id="detailBlocks" styleClass="detail-blocks"/>
+            </ScrollPane>
 
-    <center>
-        <StackPane styleClass="list-container">
-            <ListView fx:id="ideaListView" styleClass="idea-list"/>
-
-            <VBox fx:id="emptyState" styleClass="empty-state" alignment="CENTER">
-                <Label styleClass="empty-state-title" text="No ideas yet"/>
-                <Label styleClass="empty-state-hint" text="Your ideas will appear here."/>
-            </VBox>
-
-            <VBox fx:id="noMatchesState" styleClass="no-matches" alignment="CENTER">
-                <Label styleClass="no-matches-title" text="No ideas match your filters"/>
-                <Button fx:id="clearFiltersButton" styleClass="secondary-button" text="Clear filters"/>
-            </VBox>
-        </StackPane>
-    </center>
-
-    <right>
-        <StackPane fx:id="detailRegion" styleClass="detail-region"
-                   prefWidth="320" minWidth="320" maxWidth="320">
-
-            <VBox fx:id="detailPlaceholder" styleClass="detail-placeholder" alignment="CENTER">
-                <Label styleClass="detail-placeholder-label" text="Select an idea"/>
-            </VBox>
-
-            <VBox fx:id="detailPane" styleClass="detail-pane">
-                <Label fx:id="detailTitle" styleClass="detail-title" wrapText="true"/>
-                <Label fx:id="detailMeta" styleClass="detail-meta"/>
-                <FlowPane fx:id="detailTags" styleClass="idea-tags"/>
-
-                <ScrollPane fx:id="detailScroll" styleClass="detail-scroll"
-                            fitToWidth="true" VBox.vgrow="ALWAYS">
-                    <VBox fx:id="detailBlocks" styleClass="detail-blocks"/>
-                </ScrollPane>
-
+            <HBox styleClass="detail-footer" alignment="CENTER_RIGHT">
                 <Button fx:id="detailEditButton" styleClass="secondary-button" text="Edit…"/>
-            </VBox>
-        </StackPane>
-    </right>
+            </HBox>
 
-</BorderPane>
+        </VBox>
+
+    </StackPane>
+
+</StackPane>

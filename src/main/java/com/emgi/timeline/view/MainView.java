@@ -11,6 +11,8 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.collections.ListChangeListener;
+import javafx.event.EventTarget;
+import javafx.geometry.Side;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -19,9 +21,12 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -31,6 +36,8 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
@@ -50,10 +57,19 @@ public class MainView
     private static final ButtonType DELETE =
             new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
 
+    /** How much of the window the detail panel is allowed to cover, and its absolute ceiling. */
+    private static final double PANEL_WIDTH_FRACTION = 0.72;
+    private static final double PANEL_HEIGHT_FRACTION = 0.80;
+    private static final double PANEL_MAX_WIDTH = 720;
+    private static final double PANEL_MAX_HEIGHT = 620;
+
     private final IdeaListController controller;
     private final IdeaDateFormatter dateFormatter;
     private final IdeaEditorDialog editorDialog;
     private final BlockRenderer blockRenderer;
+
+    @FXML
+    private BorderPane contentRoot;
 
     @FXML
     private ListView<Idea> ideaListView;
@@ -65,10 +81,13 @@ public class MainView
     private Button newIdeaButton;
 
     @FXML
+    private Button settingsButton;
+
+    @FXML
     private TextField searchField;
 
     @FXML
-    private ChoiceBox<SortOrder> sortChoice;
+    private ComboBox<SortOrder> sortChoice;
 
     @FXML
     private HBox tagFilterRow;
@@ -83,13 +102,13 @@ public class MainView
     private Button clearFiltersButton;
 
     @FXML
-    private StackPane detailRegion;
+    private StackPane detailOverlay;
 
     @FXML
-    private VBox detailPlaceholder;
+    private Region detailScrim;
 
     @FXML
-    private VBox detailPane;
+    private VBox detailPanel;
 
     @FXML
     private Label detailTitle;
@@ -107,9 +126,16 @@ public class MainView
     private VBox detailBlocks;
 
     @FXML
+    private Button detailCloseButton;
+
+    @FXML
     private Button detailEditButton;
 
     private final ToggleButton allTagsChip = new ToggleButton("All");
+    private final ContextMenu settingsMenu = new ContextMenu();
+
+    /** Tab cycles within these while the panel is open, so focus never escapes behind the scrim. */
+    private List<Node> overlayFocusRing = List.of();
 
     public MainView(IdeaListController controller,
                     IdeaDateFormatter dateFormatter,
@@ -125,12 +151,14 @@ public class MainView
     @FXML
     private void initialize()
     {
-        if(ideaListView == null || emptyState == null || newIdeaButton == null
+        if(contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
+            || settingsButton == null
             || searchField == null || sortChoice == null || tagFilterRow == null
             || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null
-            || detailRegion == null || detailPlaceholder == null || detailPane == null
+            || detailOverlay == null || detailScrim == null || detailPanel == null
             || detailTitle == null || detailMeta == null || detailTags == null
-            || detailScroll == null || detailBlocks == null || detailEditButton == null)
+            || detailScroll == null || detailBlocks == null || detailCloseButton == null
+            || detailEditButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
@@ -160,28 +188,20 @@ public class MainView
         newIdeaButton.setDisable(false);
         newIdeaButton.setOnAction(event -> createIdea());
 
+        buildSettingsMenu();
         buildFilterControls();
-        buildDetailPane(noIdeasAtAll);
+        buildDetailOverlay();
         installKeyboard();
 
-        ideaListView.setOnMouseClicked(event ->
-        {
-            if(event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2)
-            {
-                Idea selected = ideaListView.getSelectionModel().getSelectedItem();
-                if(selected != null)
-                {
-                    editIdea(selected);
-                }
-            }
-        });
+        ideaListView.setOnMouseClicked(this::onListClick);
     }
 
     private void installKeyboard()
     {
         newIdeaButton.setTooltip(new Tooltip("New idea  (Ctrl+N)"));
         searchField.setTooltip(new Tooltip("Search titles  (Ctrl+F)"));
-        detailEditButton.setTooltip(new Tooltip("Edit this idea  (Enter, from the list)"));
+        detailCloseButton.setTooltip(new Tooltip("Close  (Esc)"));
+        detailEditButton.setTooltip(new Tooltip("Edit this idea"));
 
         ideaListView.setOnKeyPressed(this::onListKey);
         searchField.setOnKeyPressed(this::onSearchKey);
@@ -191,6 +211,7 @@ public class MainView
             if(current != null)
             {
                 installAccelerators(current);
+                current.addEventFilter(KeyEvent.KEY_PRESSED, this::onSceneKey);
             }
         });
     }
@@ -208,6 +229,105 @@ public class MainView
         Platform.runLater(ideaListView::requestFocus);
     }
 
+    /**
+     * While the detail panel is open the window behind it is modal: Esc closes, Tab stays inside
+     * the panel, the accelerators are muted, and every other key aimed at something behind the
+     * scrim is swallowed. A filter, not a handler — accelerators only see events a filter left
+     * unconsumed, which is the only way to mute them.
+     */
+    private void onSceneKey(KeyEvent event)
+    {
+        if(!detailOverlay.isVisible())
+        {
+            return;
+        }
+
+        if(event.getCode() == KeyCode.ESCAPE)
+        {
+            closeDetail();
+            event.consume();
+            return;
+        }
+
+        if(event.getCode() == KeyCode.TAB)
+        {
+            cycleOverlayFocus(event.isShiftDown());
+            event.consume();
+            return;
+        }
+
+        if(event.isShortcutDown() || !isInsideOverlay(event.getTarget()))
+        {
+            event.consume();
+        }
+    }
+
+    private void cycleOverlayFocus(boolean backwards)
+    {
+        if(overlayFocusRing.isEmpty())
+        {
+            return;
+        }
+
+        Scene scene = detailOverlay.getScene();
+        Node focused = scene == null ? null : scene.getFocusOwner();
+
+        // List.of(...).indexOf(null) throws — an immutable list rejects a null probe.
+        int current = focused == null ? -1 : overlayFocusRing.indexOf(focused);
+        int size = overlayFocusRing.size();
+        int next = current < 0 ? 0 : ((current + (backwards ? -1 : 1)) + size) % size;
+
+        overlayFocusRing.get(next).requestFocus();
+    }
+
+    private boolean isInsideOverlay(EventTarget target)
+    {
+        if(!(target instanceof Node node))
+        {
+            return false;
+        }
+
+        for(Node current = node; current != null; current = current.getParent())
+        {
+            if(current == detailOverlay)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void onListClick(MouseEvent event)
+    {
+        if(event.getButton() != MouseButton.PRIMARY)
+        {
+            return;
+        }
+
+        ListCell<?> cell = enclosingCell(event.getPickResult().getIntersectedNode());
+
+        if(cell == null || cell.isEmpty())
+        {
+            return;
+        }
+
+        openDetail();
+    }
+
+    private static ListCell<?> enclosingCell(Node node)
+    {
+        for(Node current = node; current != null; current = current.getParent())
+        {
+            if(current instanceof ListCell<?> cell)
+            {
+                return cell;
+            }
+        }
+
+        return null;
+    }
+
     private void onListKey(KeyEvent event)
     {
         Idea selected = ideaListView.getSelectionModel().getSelectedItem();
@@ -221,7 +341,7 @@ public class MainView
         {
             case ENTER ->
             {
-                editIdea(selected);
+                openDetail();
                 event.consume();
             }
             case DELETE ->
@@ -248,6 +368,45 @@ public class MainView
     {
         searchField.requestFocus();
         searchField.selectAll();
+    }
+
+    /**
+     * The gear beside "+ New Idea".
+     *
+     * Side.BOTTOM anchors the menu under the button instead of over it, and the 4px gap keeps
+     * the button's own border visible while the menu is open. The menu is then nudged left so
+     * its right edge lines up with the button's — its width is only known once it is showing,
+     * which is why that cannot be an offset passed to show().
+     */
+    private void buildSettingsMenu()
+    {
+        settingsButton.setAccessibleText("Settings");
+        settingsButton.setTooltip(new Tooltip("Settings"));
+
+        // TODO: replace this placeholder with the real entries once the settings surface is
+        //       decided. Candidates raised so far: Appearance, Storage location, About Timeline.
+        //       Note that window geometry lives in Preferences while everything else is in
+        //       SQLite, so "where settings are stored" is an open question of its own.
+        MenuItem placeholder = new MenuItem("No settings yet");
+        placeholder.setDisable(true);
+        settingsMenu.getItems().setAll(placeholder);
+
+        settingsMenu.setOnShowing(event -> settingsButton.getStyleClass().add("showing"));
+        settingsMenu.setOnHidden(event -> settingsButton.getStyleClass().remove("showing"));
+
+        settingsButton.setOnAction(event -> toggleSettingsMenu());
+    }
+
+    private void toggleSettingsMenu()
+    {
+        if(settingsMenu.isShowing())
+        {
+            settingsMenu.hide();
+            return;
+        }
+
+        settingsMenu.show(settingsButton, Side.BOTTOM, 0, 4);
+        settingsMenu.setX(settingsMenu.getX() + settingsButton.getWidth() - settingsMenu.getWidth());
     }
 
     private void buildFilterControls()
@@ -323,18 +482,40 @@ public class MainView
         }
     }
 
-    private void buildDetailPane(BooleanBinding noIdeasAtAll)
+    private void buildDetailOverlay()
     {
-        detailRegion.visibleProperty().bind(noIdeasAtAll.not());
-        detailRegion.managedProperty().bind(detailRegion.visibleProperty());
+        detailOverlay.setVisible(false);
+        detailOverlay.managedProperty().bind(detailOverlay.visibleProperty());
 
-        BooleanBinding nothingSelected = controller.selectedIdeaProperty().isNull();
+        /*
+         * The panel is a fraction of the window rather than a fixed box, so the dimmed margin
+         * around it stays visible at every window size, and it still stops growing on a big
+         * monitor where a 1400px-wide read pane would be unreadable.
+         */
+        detailPanel.maxWidthProperty().bind(Bindings.min(
+            contentRoot.widthProperty().multiply(PANEL_WIDTH_FRACTION), PANEL_MAX_WIDTH));
+        detailPanel.maxHeightProperty().bind(Bindings.min(
+            contentRoot.heightProperty().multiply(PANEL_HEIGHT_FRACTION), PANEL_MAX_HEIGHT));
 
-        detailPlaceholder.visibleProperty().bind(nothingSelected);
-        detailPlaceholder.managedProperty().bind(detailPlaceholder.visibleProperty());
+        overlayFocusRing = List.of(detailScroll, detailEditButton, detailCloseButton);
 
-        detailPane.visibleProperty().bind(nothingSelected.not());
-        detailPane.managedProperty().bind(detailPane.visibleProperty());
+        detailScrim.setOnMouseClicked(event ->
+        {
+            /*
+             * Only a single click dismisses. A double click on a list row opens the panel on the
+             * first press, which puts the scrim under the second press — without this guard the
+             * panel would flash open and shut again.
+             */
+            if(event.getClickCount() == 1)
+            {
+                closeDetail();
+            }
+
+            event.consume();
+        });
+
+        detailCloseButton.setOnAction(event -> closeDetail());
+        detailEditButton.setOnAction(event -> editIdea(controller.selectedIdeaProperty().get()));
 
         ideaListView.getSelectionModel().selectedItemProperty().addListener(
             (observable, previous, current) -> controller.select(current));
@@ -342,23 +523,59 @@ public class MainView
         controller.selectedIdeaProperty().addListener(
             (observable, previous, current) ->
             {
-                showDetail(current);
+                if(current == null)
+                {
+                    closeDetail();
+                    return;
+                }
 
-                if(current != null && ideaListView.getSelectionModel().getSelectedItem() != current)
+                if(ideaListView.getSelectionModel().getSelectedItem() != current)
                 {
                     ideaListView.getSelectionModel().select(current);
                 }
+
+                if(detailOverlay.isVisible())
+                {
+                    showDetail(current);
+                }
             });
+    }
 
-        detailEditButton.setOnAction(event -> editIdea(controller.selectedIdeaProperty().get()));
+    /**
+     * Selection alone no longer opens the panel — a click on a row or Enter does. Keeping the two
+     * apart is what lets the arrow keys walk the list without a modal panel opening on every step.
+     */
+    private void openDetail()
+    {
+        Idea idea = controller.selectedIdeaProperty().get();
 
-        showDetail(controller.selectedIdeaProperty().get());
+        if(idea == null || detailOverlay.isVisible())
+        {
+            return;
+        }
+
+        showDetail(idea);
+        detailOverlay.setVisible(true);
+        Platform.runLater(detailScroll::requestFocus);
+    }
+
+    private void closeDetail()
+    {
+        if(!detailOverlay.isVisible())
+        {
+            return;
+        }
+
+        detailOverlay.setVisible(false);
+        ideaListView.requestFocus();
     }
 
     private void showDetail(Idea idea)
     {
         if(idea == null)
         {
+            detailTitle.setText("");
+            detailMeta.setText("");
             detailBlocks.getChildren().clear();
             detailTags.getChildren().clear();
             return;
@@ -399,7 +616,7 @@ public class MainView
             }
         });
 
-        ideaListView.requestFocus();
+        restoreFocus();
     }
 
     private void editIdea(Idea idea)
@@ -418,7 +635,7 @@ public class MainView
             controller.load();
         }
 
-        ideaListView.requestFocus();
+        restoreFocus();
     }
 
     private void deleteIdea(Idea idea)
@@ -447,7 +664,23 @@ public class MainView
             controller.delete(idea);
         }
 
-        ideaListView.requestFocus();
+        restoreFocus();
+    }
+
+    /**
+     * A dialog opened from inside the panel must hand focus back to the panel, not to the list
+     * sitting behind the scrim where the focus ring would be invisible and unreachable.
+     */
+    private void restoreFocus()
+    {
+        if(detailOverlay.isVisible())
+        {
+            detailScroll.requestFocus();
+        }
+        else
+        {
+            ideaListView.requestFocus();
+        }
     }
 
     private Window window()
