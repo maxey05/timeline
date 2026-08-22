@@ -2,10 +2,6 @@ package com.emgi.timeline.controller;
 
 import com.emgi.timeline.domain.command.CreateIdeaCommand;
 import com.emgi.timeline.domain.command.UpdateIdeaCommand;
-import com.emgi.timeline.domain.content.ContentBlock;
-import com.emgi.timeline.domain.content.ImageBlock;
-import com.emgi.timeline.domain.content.LinkBlock;
-import com.emgi.timeline.domain.content.TextBlock;
 import com.emgi.timeline.domain.model.Description;
 import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.IdeaId;
@@ -24,8 +20,6 @@ import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -51,7 +45,7 @@ public final class IdeaEditorController
 
     private final StringProperty title = new SimpleStringProperty("");
 
-    private final ObservableList<BlockDraft> blocks = FXCollections.observableArrayList();
+    private final StringProperty description = new SimpleStringProperty("");
 
     private final ObjectProperty<IdeaStatus> status =
             new SimpleObjectProperty<>(IdeaStatus.INCOMPLETE);
@@ -79,76 +73,15 @@ public final class IdeaEditorController
         return title;
     }
 
-    public ObservableList<BlockDraft> blocks()
+    /**
+     * The whole description, as one string.
+     *
+     * <p>The editor binds a single text box to this bidirectionally. There is no draft
+     * type and no per-piece state any more: what the user sees in the box is the value.
+     */
+    public StringProperty descriptionProperty()
     {
-        return blocks;
-    }
-
-    public BlockDraft addBlock(BlockKind kind)
-    {
-        Objects.requireNonNull(kind, "kind");
-
-        BlockDraft draft = BlockDraft.ofKind(kind);
-        blocks.add(draft);
-        return draft;
-    }
-
-    public void removeBlock(BlockDraft draft)
-    {
-        Objects.requireNonNull(draft, "draft");
-
-        int index = indexOfBlock(draft);
-        if(index >= 0)
-        {
-            blocks.remove(index);
-        }
-    }
-
-    public void moveBlockUp(BlockDraft draft)
-    {
-        Objects.requireNonNull(draft, "draft");
-
-        int index = indexOfBlock(draft);
-        if(index <= 0)
-        {
-            return;
-        }
-
-        swapBlocks(index, index - 1);
-    }
-
-    public void moveBlockDown(BlockDraft draft)
-    {
-        Objects.requireNonNull(draft, "draft");
-
-        int index = indexOfBlock(draft);
-        if(index < 0 || index >= blocks.size() - 1)
-        {
-            return;
-        }
-
-        swapBlocks(index, index + 1);
-    }
-
-    private int indexOfBlock(BlockDraft draft)
-    {
-        for(int i = 0; i < blocks.size(); i++)
-        {
-            if(blocks.get(i) == draft)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private void swapBlocks(int from, int to)
-    {
-        BlockDraft moving = blocks.get(from);
-        BlockDraft displaced = blocks.get(to);
-        blocks.set(to, moving);
-        blocks.set(from, displaced);
+        return description;
     }
 
     public ObjectProperty<IdeaStatus> statusProperty()
@@ -192,6 +125,7 @@ public final class IdeaEditorController
 
         lines.add("title" + SNAPSHOT_SEPARATOR + text(title.get()).strip());
         lines.add("status" + SNAPSHOT_SEPARATOR + status.get());
+        lines.add("description" + SNAPSHOT_SEPARATOR + text(description.get()).strip());
 
         List<String> names = new ArrayList<>(tags.size());
         for(Tag tag : tags)
@@ -204,16 +138,6 @@ public final class IdeaEditorController
         for(String name : names)
         {
             lines.add("tag" + SNAPSHOT_SEPARATOR + name);
-        }
-
-        for(BlockDraft draft : blocks)
-        {
-            if(draft.isBlank())
-            {
-                continue;
-            }
-
-            lines.add("block" + SNAPSHOT_SEPARATOR + draft.snapshot());
         }
 
         return List.copyOf(lines);
@@ -241,7 +165,7 @@ public final class IdeaEditorController
         targetMissing = false;
 
         title.set("");
-        blocks.setAll(BlockDraft.ofKind(BlockKind.TEXT));
+        description.set("");
         status.set(IdeaStatus.INCOMPLETE);
         tags.clear();
 
@@ -259,7 +183,7 @@ public final class IdeaEditorController
         targetMissing = false;
 
         title.set(idea.title());
-        blocks.setAll(draftsFor(idea.description()));
+        description.set(idea.description().text());
         status.set(idea.status());
 
         List<Tag> ordered = new ArrayList<>(idea.tags());
@@ -306,24 +230,26 @@ public final class IdeaEditorController
         tagsError.set("");
     }
 
+    /**
+     * Hands the form to the service.
+     *
+     * <p>The block model needed a pre-flight pass here to turn draft rows into blocks and
+     * to report the ones that could not convert. One string needs none of that, so every
+     * INVALID now comes from {@code IdeaValidator} by way of the service -- there is
+     * exactly one place that decides whether a description is acceptable.
+     */
     public SaveResult save()
     {
         clearErrors();
         targetMissing = false;
 
-        DescriptionAttempt attempt = readDescription();
-
-        if(!attempt.errors().isEmpty())
-        {
-            descriptionError.set(String.join(" ", attempt.errors()));
-            return SaveResult.INVALID;
-        }
+        Description body = new Description(text(description.get()).strip());
 
         SaveOutcome outcome = isEditing()
             ? service.update(new UpdateIdeaCommand(
-                editingId, title.get(), attempt.description(), tagSet(), status.get()))
+                editingId, title.get(), body, tagSet(), status.get()))
             : service.create(new CreateIdeaCommand(
-                title.get(), attempt.description(), tagSet(), status.get()));
+                title.get(), body, tagSet(), status.get()));
 
         return switch(outcome)
         {
@@ -367,83 +293,5 @@ public final class IdeaEditorController
     private Set<Tag> tagSet()
     {
         return new LinkedHashSet<>(tags);
-    }
-
-    private record DescriptionAttempt(Description description, List<String> errors) { }
-
-    private static List<BlockDraft> draftsFor(Description description)
-    {
-        List<BlockDraft> drafts = new ArrayList<>();
-
-        for(ContentBlock block : description.blocks())
-        {
-            drafts.add(BlockDraft.from(block));
-        }
-
-        if(drafts.isEmpty())
-        {
-            drafts.add(BlockDraft.ofKind(BlockKind.TEXT));
-        }
-
-        return drafts;
-    }
-
-    private DescriptionAttempt readDescription()
-    {
-        blocks.removeIf(BlockDraft::isBlank);
-
-        List<ContentBlock> converted = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-
-        for(int i = 0; i < blocks.size(); i++)
-        {
-            BlockDraft draft = blocks.get(i);
-            int position = i + 1;
-
-            if(draft.isMissingUri())
-            {
-                errors.add("Block " + position + ": " + draft.kind().addressWord()
-                    + " address is required.");
-                continue;
-            }
-
-            switch(draft.kind())
-            {
-                case TEXT -> converted.add(new TextBlock(draft.textProperty().get().strip()));
-
-                case LINK ->
-                {
-                    URI target = parse(draft.uriProperty().get(), position, errors);
-                    if(target != null)
-                    {
-                        converted.add(new LinkBlock(target, draft.labelProperty().get()));
-                    }
-                }
-
-                case IMAGE ->
-                {
-                    URI source = parse(draft.uriProperty().get(), position, errors);
-                    if(source != null)
-                    {
-                        converted.add(new ImageBlock(source, draft.altTextProperty().get()));
-                    }
-                }
-            }
-        }
-
-        return new DescriptionAttempt(new Description(converted), errors);
-    }
-
-    private static URI parse(String raw, int position, List<String> errors)
-    {
-        try
-        {
-            return new URI(raw.strip());
-        }
-        catch(URISyntaxException e)
-        {
-            errors.add("Block " + position + ": '" + raw.strip() + "' is not a valid address.");
-            return null;
-        }
     }
 }
