@@ -13,6 +13,7 @@ import com.emgi.timeline.service.UuidIdGenerator;
 import com.emgi.timeline.settings.PreferencesWindowStateStore;
 import com.emgi.timeline.view.IdeaEditorDialog;
 import com.emgi.timeline.view.MainView;
+import com.emgi.timeline.view.Theme;
 import com.emgi.timeline.view.WindowGeometry;
 import com.emgi.timeline.view.content.BlockRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
@@ -33,8 +34,6 @@ import java.util.Objects;
 public class App extends Application
 {
     private static final String FXML_MAIN = "/com/emgi/timeline/fxml/MainView.fxml";
-    private static final String CSS_BASE = "/com/emgi/timeline/css/base.css";
-    private static final String CSS_THEME = "/com/emgi/timeline/css/theme-mono.css";
 
     private SqliteConnectionSource connectionSource;
 
@@ -43,6 +42,8 @@ public class App extends Application
     @Override
     public void start(Stage stage) throws IOException
     {
+        Theme.loadFonts();
+
         Clock clock = Clock.systemDefaultZone();
 
         IdeaListController listController;
@@ -81,10 +82,7 @@ public class App extends Application
         Parent root = loader.load();
 
         Scene scene = new Scene(root, 900, 640);
-        scene.getStylesheets().addAll(
-            resource(CSS_BASE).toExternalForm(),
-            resource(CSS_THEME).toExternalForm()
-        );
+        Theme.applyTo(scene);
 
         stage.setTitle("Timeline");
         stage.setMinWidth(820);
@@ -130,6 +128,7 @@ public class App extends Application
     private void showStorageFailure(StorageException e)
     {
         Alert alert = new Alert(AlertType.ERROR);
+        Theme.applyTo(alert);
         alert.setTitle("Timeline");
         alert.setHeaderText("Timeline can't open its database.");
         alert.setContentText(
