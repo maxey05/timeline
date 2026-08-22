@@ -429,6 +429,7 @@ public class MainView
         }
 
         Alert confirm = new Alert(AlertType.CONFIRMATION);
+        Theme.applyTo(confirm);
         confirm.initOwner(window());
         confirm.setTitle("Timeline");
         confirm.setHeaderText("Delete \"" + idea.title() + "\"?");

@@ -174,6 +174,7 @@ public class IdeaEditorView
         }
 
         Alert confirm = new Alert(AlertType.CONFIRMATION);
+        Theme.applyTo(confirm);
         confirm.initOwner(stage);
         confirm.setTitle("Timeline");
         confirm.setHeaderText("Discard your changes?");
@@ -416,6 +417,7 @@ public class IdeaEditorView
     private void showMissing()
     {
         Alert alert = new Alert(AlertType.WARNING);
+        Theme.applyTo(alert);
         alert.initOwner(stage);
         alert.setTitle("Timeline");
         alert.setHeaderText("This idea no longer exists.");
