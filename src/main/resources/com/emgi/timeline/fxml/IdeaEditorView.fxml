@@ -29,17 +29,7 @@
 
     <Label styleClass="field-label" text="Description"/>
 
-    <!--
-        One box, and a button floating over its bottom-right corner. The button is a
-        sibling in a StackPane rather than a row underneath so that the description reads
-        as a single uninterrupted writing surface, which was the whole point of dropping
-        the block editor. Its margin clears the writing surface's own scrollbar.
 
-        The writing surface itself is NOT declared here. It is a DescriptionArea, a
-        GenericStyledArea generic in three type parameters with no no-arg constructor, so
-        FXML cannot build one; IdeaEditorView.buildDescriptionArea inserts it at index 0 of
-        this stack, underneath the button. This placeholder is all the FXML can own.
-    -->
     <StackPane fx:id="descriptionStack" styleClass="description-stack" VBox.vgrow="ALWAYS">
         <Button fx:id="insertImageButton" styleClass="insert-image-button" text="+"
                 StackPane.alignment="BOTTOM_RIGHT">
