@@ -29,6 +29,13 @@ public final class SchemaInitializer
                 throw new StorageException("Could not apply schema statement: " + statementSql, e);
             }
         }
+
+        /*
+         * schema.sql only ever runs CREATE TABLE IF NOT EXISTS, so it cannot reshape a
+         * database that already exists. Anything that has to change an existing file --
+         * today, folding idea_block into idea.description -- belongs here, after it.
+         */
+        LegacyBlockMigration.apply(connection);
     }
 
     static String readSchema()
