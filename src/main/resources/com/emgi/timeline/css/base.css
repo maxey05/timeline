@@ -39,9 +39,44 @@
     -fx-cursor: hand;
 }
 
+/*
+ * A square, graphic-only button. 28px matches .primary-button's height (6 + 16 + 6) so
+ * adding one to the header never shifts the baseline. .icon-box pins the graphic's layout
+ * size to 16px, which is what lets the SVGPath inside be scaled without moving anything.
+ */
+.icon-button
+{
+    -fx-min-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-max-height: 28px;
+    -fx-padding: 0;
+    -fx-background-radius: 3px;
+    -fx-background-insets: 0;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+}
+
+.icon-box
+{
+    -fx-min-width: 16px;
+    -fx-max-width: 16px;
+    -fx-min-height: 16px;
+    -fx-max-height: 16px;
+    -fx-padding: 0;
+}
+
+.icon-glyph
+{
+    -fx-stroke-width: 2px;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
 .list-container
 {
-    -fx-padding: 0;
+    -fx-padding: 10px 16px 0 16px;
 }
 
 .idea-list
@@ -51,17 +86,17 @@
 
 .idea-cell
 {
-    -fx-padding: 14px 18px;
+    -fx-padding: 11px 16px;
 }
 
 .idea-cell-root
 {
-    -fx-spacing: 5px;
+    -fx-spacing: 8px;
 }
 
 .idea-title
 {
-    -fx-font-size: 15px;
+    -fx-font-size: 17px;
     -fx-font-weight: 500;
 }
 
@@ -220,6 +255,36 @@
     -fx-border-width: 1px;
 }
 
+.sort-choice .list-cell
+{
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.sort-choice .arrow-button
+{
+    -fx-padding: 0 0 0 6px;
+}
+
+/*
+ * The popup is a ListView in its own PopupControl, so it is styled by .combo-box-popup and
+ * not by .sort-choice. ComboBoxPopupControl anchors it at the button's bottom edge — which
+ * is the whole reason this is a ComboBox and not a ChoiceBox, whose skin puts the selected
+ * row on top of the button.
+ */
+.combo-box-popup .list-view
+{
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+    -fx-border-width: 1px;
+}
+
+.combo-box-popup .list-view .list-cell
+{
+    -fx-font-size: 12px;
+    -fx-padding: 4px 6px;
+}
+
 .tag-filter-row
 {
     -fx-spacing: 10px;
@@ -312,16 +377,7 @@
     -fx-padding: 8px 0 0 0;
 }
 
-.detail-region
-{
-    -fx-padding: 0;
-}
 
-.detail-pane
-{
-    -fx-padding: 16px 18px;
-    -fx-spacing: 6px;
-}
 
 .detail-title
 {
@@ -373,12 +429,51 @@
     -fx-border-radius: 3px;
 }
 
-.detail-placeholder
+
+/*
+ * The detail panel — a modal read view laid over the whole window, replacing the fixed
+ * right-hand region of Phase 6. Sizes live in MainView (they are a fraction of the window);
+ * this file only carries the box.
+ */
+.root-stack
 {
-    -fx-padding: 32px;
+    -fx-padding: 0;
 }
 
-.detail-placeholder-label
+.detail-overlay
 {
+    -fx-padding: 0;
+}
+
+.detail-panel
+{
+    -fx-padding: 18px 20px;
+    -fx-spacing: 8px;
+    -fx-background-radius: 3px;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+}
+
+.detail-panel-header
+{
+    -fx-spacing: 10px;
+}
+
+.detail-heading
+{
+    -fx-spacing: 2px;
+}
+
+.detail-close-button
+{
+    -fx-padding: 2px 8px;
     -fx-font-size: 13px;
+    -fx-background-radius: 3px;
+    -fx-cursor: hand;
+}
+
+.detail-footer
+{
+    -fx-spacing: 8px;
+    -fx-padding: 6px 0 0 0;
 }

@@ -77,6 +77,46 @@
     -fx-opacity: 0.45;
 }
 
+/*
+ * The gear borrows .secondary-button's material so it stays subordinate to + New Idea, the
+ * only -surface-selected thing in the header. Focus is border COLOUR, following .filter-chip
+ * and .sort-choice: on a control that already draws a 1px opaque -separator border, the
+ * two-layer background trick .secondary-button uses would be painted over and never seen.
+ */
+.icon-button
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.icon-button:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.icon-button:focused
+{
+    -fx-border-color: -text-primary;
+}
+
+.icon-button.showing
+{
+    -fx-background-color: -surface-selected;
+}
+
+.icon-glyph
+{
+    -fx-fill: null;
+    -fx-stroke: -text-secondary;
+}
+
+.icon-button:hover .icon-glyph,
+.icon-button:focused .icon-glyph,
+.icon-button.showing .icon-glyph
+{
+    -fx-stroke: -text-primary;
+}
+
 .list-container,
 .idea-list,
 .idea-list .virtual-flow
@@ -86,9 +126,19 @@
 
 .idea-list .list-cell
 {
-    -fx-background-color: -surface;
+    -fx-background-color: -canvas;
     -fx-border-color: transparent transparent -separator transparent;
     -fx-border-width: 0 0 1px 0;
+}
+
+/*
+ * Below the last idea there is no list any more, so the empty cells draw neither fill
+ * nor separator. The rule under the last filled cell is what closes the list.
+ */
+.idea-list .list-cell:empty
+{
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
 }
 
 .idea-list .list-cell:filled:hover
@@ -241,14 +291,37 @@
     -fx-border-color: -separator;
 }
 
-.sort-choice .label
+.sort-choice .list-cell
 {
+    -fx-background-color: transparent;
     -fx-text-fill: -text-primary;
 }
 
 .sort-choice .arrow
 {
     -fx-background-color: -text-secondary;
+}
+
+.combo-box-popup .list-view
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.combo-box-popup .list-view .list-cell
+{
+    -fx-background-color: -surface;
+    -fx-text-fill: -text-primary;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected
+{
+    -fx-background-color: -surface-selected;
 }
 
 .filter-chip
@@ -305,18 +378,7 @@
     -fx-opacity: 0.35;
 }
 
-.detail-region
-{
-    -fx-background-color: -canvas;
-    -fx-border-color: transparent transparent transparent -separator;
-    -fx-border-width: 0 0 0 1px;
-}
 
-.detail-pane,
-.detail-placeholder
-{
-    -fx-background-color: -canvas;
-}
 
 .detail-title
 {
@@ -324,7 +386,6 @@
 }
 
 .detail-meta,
-.detail-placeholder-label,
 .block-image-missing
 {
     -fx-text-fill: -text-secondary;
@@ -487,4 +548,36 @@
 {
     -fx-text-fill: -text-primary;
     -fx-underline: true;
+}
+
+
+.detail-scrim
+{
+    -fx-background-color: rgba(0, 0, 0, 0.58);
+}
+
+.detail-panel
+{
+    -fx-background-color: -canvas;
+    -fx-border-color: -separator;
+}
+
+.detail-close-button
+{
+    -fx-background-color: transparent;
+    -fx-text-fill: -text-secondary;
+}
+
+.detail-close-button:hover
+{
+    -fx-background-color: -surface-hover;
+    -fx-text-fill: -text-primary;
+}
+
+.detail-close-button:focused
+{
+    -fx-background-color: -text-primary, -canvas;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px, 2px;
+    -fx-text-fill: -text-primary;
 }
