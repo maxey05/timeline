@@ -19,6 +19,44 @@
     -fx-font-size: 15px;
 }
 
+.title-bar
+{
+    -fx-padding: 0 0 0 18px;
+    -fx-min-height: 32px;
+    -fx-max-height: 32px;
+}
+
+.title-bar-name
+{
+    -fx-font-size: 12px;
+}
+
+.caption-button
+{
+    -fx-min-width: 46px;
+    -fx-max-width: 46px;
+    -fx-min-height: 32px;
+    -fx-max-height: 32px;
+    -fx-padding: 0;
+    -fx-background-radius: 0;
+    -fx-background-insets: 0;
+}
+
+.caption-box
+{
+    -fx-min-width: 12px;
+    -fx-max-width: 12px;
+    -fx-min-height: 12px;
+    -fx-max-height: 12px;
+    -fx-padding: 0;
+}
+
+.caption-glyph
+{
+    -fx-stroke-width: 1px;
+    -fx-stroke-line-cap: butt;
+}
+
 .app-header
 {
     -fx-padding: 14px 18px;
@@ -39,11 +77,6 @@
     -fx-cursor: hand;
 }
 
-/*
- * A square, graphic-only button. 28px matches .primary-button's height (6 + 16 + 6) so
- * adding one to the header never shifts the baseline. .icon-box pins the graphic's layout
- * size to 16px, which is what lets the SVGPath inside be scaled without moving anything.
- */
 .icon-button
 {
     -fx-min-width: 28px;
@@ -275,12 +308,6 @@
     -fx-padding: 0 0 0 6px;
 }
 
-/*
- * The popup is a ListView in its own PopupControl, so it is styled by .combo-box-popup and
- * not by .sort-choice. ComboBoxPopupControl anchors it at the button's bottom edge — which
- * is the whole reason this is a ComboBox and not a ChoiceBox, whose skin puts the selected
- * row on top of the button.
- */
 .combo-box-popup .list-view
 {
     -fx-padding: 0;
@@ -332,13 +359,6 @@
     -fx-padding: 2px 0 2px 0;
 }
 
-/*
- * The writing surface. Unlike the TextArea it replaced, the box the user sees is the AREA
- * itself and not a scroll pane around it -- the VirtualizedScrollPane is a transparent
- * shell that only supplies scrollbars, which then float over the area's own rounded edge
- * exactly as the TextArea's did. Keeping the paint on the area is also what lets :focused
- * light the border, since the area is what takes focus, not the shell.
- */
 .description-scroll
 {
     -fx-pref-height: 220px;
@@ -353,30 +373,16 @@
     -fx-border-width: 1px;
 }
 
-/*
- * RichTextFX draws each run of words as a TextExt carrying the .text class, so type size
- * belongs there and not on the area -- a font size set on the area styles nothing, because
- * the area itself never draws any glyphs.
- */
 .description-area .text
 {
     -fx-font-size: 13px;
 }
 
-/*
- * A picture is one character in the document, so its paragraph is centred rather than the
- * node -- see DescriptionArea.applyParagraphStyle. This padding is the air around it.
- */
 .description-area .description-image
 {
     -fx-padding: 6px 0;
 }
 
-/*
- * The insert-image button floats over the bottom-right corner of the text box. Its
- * offset from that corner is the StackPane margin in the FXML, not padding here --
- * padding would only grow the button inward and leave it sitting on the scrollbar.
- */
 .insert-image-button
 {
     -fx-font-size: 15px;
@@ -411,13 +417,6 @@
     -fx-border-width: 1px 0 0 0;
 }
 
-/*
- * The description well. It styles the ScrollPane's CONTENT, not the ScrollPane, so it
- * hugs the description and leaves -canvas below a short idea; a long one scrolls as a
- * whole. DescriptionRenderer.renderAll builds its own .description-body VBox inside this
- * node, and that nested column is what carries the paragraph spacing -- which is why this
- * one does not. (Styling both would draw two nested wells.)
- */
 .description-well
 {
     -fx-padding: 12px 14px;
@@ -441,11 +440,6 @@
     -fx-font-size: 13px;
 }
 
-/*
- * A Hyperlink sitting inside a TextFlow rather than a column of its own, so it must not
- * carry the padding a standalone control would -- any here would push the link off the
- * text baseline mid-sentence.
- */
 .description-link
 {
     -fx-font-size: 13px;
@@ -469,14 +463,10 @@
 }
 
 
-/*
- * The detail panel — a modal read view laid over the whole window, replacing the fixed
- * right-hand region of Phase 6. Sizes live in MainView (they are a fraction of the window);
- * this file only carries the box.
- */
 .root-stack
 {
-    -fx-padding: 0;
+    -fx-padding: 1px;
+    -fx-border-width: 1px;
 }
 
 .detail-overlay,
@@ -485,11 +475,6 @@
     -fx-padding: 0;
 }
 
-/*
- * The first-launch name prompt. Deliberately the same shell as .detail-panel below — it is
- * the same kind of object — but sized by its one field instead of by the window, which is
- * what makes it the small one of the three.
- */
 .name-prompt-overlay
 {
     -fx-padding: 0;
@@ -510,10 +495,6 @@
     -fx-font-weight: 500;
 }
 
-/*
- * The same scale as .title-input, and not shared with it on purpose: the two happen to agree
- * today, but a change to how an idea's title reads should not silently resize this.
- */
 .name-input
 {
     -fx-font-size: 19px;
