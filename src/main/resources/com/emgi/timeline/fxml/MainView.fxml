@@ -30,7 +30,8 @@
         <top>
             <VBox>
                 <HBox styleClass="app-header" alignment="CENTER_LEFT">
-                    <Label styleClass="app-title" text="Timeline"/>
+                    <!-- Text is bound in MainView: the greeting needs a name to greet. -->
+                    <Label fx:id="appTitle" styleClass="app-title" text="Timeline"/>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
 
@@ -106,11 +107,50 @@
 
             <ScrollPane fx:id="detailScroll" styleClass="detail-scroll"
                         fitToWidth="true" VBox.vgrow="ALWAYS">
-                <VBox fx:id="detailBlocks" styleClass="detail-blocks"/>
+                <VBox fx:id="descriptionWell" styleClass="description-well"/>
             </ScrollPane>
 
             <HBox styleClass="detail-footer" alignment="CENTER_RIGHT">
                 <Button fx:id="detailEditButton" styleClass="secondary-button" text="Edit…"/>
+            </HBox>
+
+        </VBox>
+
+    </StackPane>
+
+    <!--
+        The editor. A host pane rather than the editor markup itself, because
+        IdeaEditorView.fxml is loaded fresh on every open: one living here permanently
+        would need its form model reset each time, and its default/cancel buttons are
+        scene-wide, so they would still be firing on Enter and Esc while the main
+        window had focus.
+    -->
+    <StackPane fx:id="editorOverlay" styleClass="editor-overlay" visible="false">
+
+        <Region fx:id="editorScrim" styleClass="detail-scrim"/>
+
+        <StackPane fx:id="editorHost"/>
+
+    </StackPane>
+
+    <!--
+        The first-launch name prompt, last so it sits over everything: it is asked
+        before the user has anything else on screen. Same overlay family as the two
+        panels above — scrim, blurred backdrop, fade — at a size set by its one
+        field rather than by the window.
+    -->
+    <StackPane fx:id="namePromptOverlay" styleClass="name-prompt-overlay" visible="false">
+
+        <Region fx:id="namePromptScrim" styleClass="detail-scrim"/>
+
+        <VBox fx:id="namePromptPanel" styleClass="name-prompt-panel">
+
+            <Label styleClass="name-prompt-title" text="Welcome to your timeline."/>
+
+            <TextField fx:id="nameField" styleClass="name-input" promptText="enter your name…"/>
+
+            <HBox styleClass="name-prompt-footer" alignment="CENTER_RIGHT">
+                <Button fx:id="nameOkButton" styleClass="primary-button" text="OK"/>
             </HBox>
 
         </VBox>
