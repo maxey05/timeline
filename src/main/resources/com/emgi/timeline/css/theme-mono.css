@@ -179,6 +179,7 @@
 .editor-pane
 {
     -fx-background-color: -canvas;
+    -fx-border-color: -separator;
 }
 
 .field-label
@@ -348,34 +349,63 @@
     -fx-text-fill: -text-primary;
 }
 
-.block-scroll,
-.block-scroll .viewport,
 .detail-scroll,
 .detail-scroll .viewport
 {
     -fx-background-color: -canvas;
 }
 
-.block-glyph
-{
-    -fx-text-fill: -text-secondary;
-}
-
-.block-button
+/*
+ * The rich writing surface. Four selectors because RichTextFX paints in four places, and
+ * -fx-text-fill / -fx-highlight-fill -- the properties .text-input uses -- reach NONE of
+ * them: the area draws its own Text, caret and selection nodes, which take -fx-fill and
+ * -fx-stroke instead. Setting the TextArea properties here would look right in the CSS and
+ * do nothing on screen.
+ */
+.description-scroll
 {
     -fx-background-color: transparent;
-    -fx-text-fill: -text-secondary;
 }
 
-.block-button:hover
+.description-area
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.description-area:focused
+{
+    -fx-border-color: -text-secondary;
+}
+
+.description-area .text
+{
+    -fx-fill: -text-primary;
+}
+
+.description-area .caret
+{
+    -fx-stroke: -text-primary;
+}
+
+.description-area .selection
+{
+    -fx-fill: -surface-active;
+}
+
+.insert-image-button
+{
+    -fx-background-color: -surface;
+    -fx-text-fill: -text-secondary;
+    -fx-border-color: -separator;
+    -fx-border-radius: 13px;
+    -fx-border-width: 1px;
+}
+
+.insert-image-button:hover
 {
     -fx-background-color: -surface-hover;
     -fx-text-fill: -text-primary;
-}
-
-.block-button:disabled
-{
-    -fx-opacity: 0.35;
 }
 
 
@@ -386,31 +416,31 @@
 }
 
 .detail-meta,
-.block-image-missing
+.description-image-missing
 {
     -fx-text-fill: -text-secondary;
 }
 
-.block-text
+.description-text
 {
-    -fx-text-fill: -text-primary;
+    -fx-fill: -text-primary;
 }
 
-.block-link,
-.block-link:visited,
-.block-link:hover,
-.block-link:focused
+.description-link,
+.description-link:visited,
+.description-link:hover,
+.description-link:focused
 {
     -fx-text-fill: -text-primary;
     -fx-border-color: transparent;
 }
 
-.block-link:hover
+.description-link:hover
 {
     -fx-text-fill: -text-secondary;
 }
 
-.block-image-missing
+.description-image-missing
 {
     -fx-border-color: -separator;
     -fx-background-color: -surface;
@@ -518,11 +548,12 @@
     -fx-background-radius: 3px, 2px;
 }
 
-.block-button:focused
+.insert-image-button:focused
 {
-    -fx-background-color: -text-primary, -canvas;
+    -fx-background-color: -text-primary, -surface;
     -fx-background-insets: 0, 1;
-    -fx-background-radius: 3px, 2px;
+    -fx-background-radius: 13px, 12px;
+    -fx-border-color: transparent;
     -fx-text-fill: -text-primary;
 }
 
@@ -530,12 +561,6 @@
 {
     -fx-text-fill: -text-primary;
     -fx-underline: true;
-}
-
-.detail-scroll:focused
-{
-    -fx-background-color: -text-primary, -canvas;
-    -fx-background-insets: 0, 1;
 }
 
 .idea-list:focused .list-cell:filled:selected
@@ -553,13 +578,42 @@
 
 .detail-scrim
 {
-    -fx-background-color: rgba(0, 0, 0, 0.58);
+    -fx-background-color: rgba(0, 0, 0, 0.45);
 }
 
+.name-prompt-panel,
 .detail-panel
 {
     -fx-background-color: -canvas;
     -fx-border-color: -separator;
+}
+
+.name-prompt-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+/* The divider that replaced the white focus ring. Width lives in base.css. */
+.detail-scroll
+{
+    -fx-border-color: -separator transparent transparent transparent;
+}
+
+.description-well
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+/*
+ * :focus-visible, NOT :focused. openDetail() calls detailScroll.requestFocus(), so a
+ * :focused rule here is lit every time the panel opens -- that is exactly what the old
+ * white ring was. focus-visible (JavaFX 19+) only fires on keyboard traversal, so the
+ * well keeps its quiet -separator outline until someone actually Tabs to it.
+ */
+.detail-scroll:focus-visible .description-well
+{
+    -fx-border-color: -text-secondary;
 }
 
 .detail-close-button
