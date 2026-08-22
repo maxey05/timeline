@@ -1,15 +1,3 @@
-/*
- * Timeline — dark monochrome theme.
- *
- * Two greys carry the whole design:
- *   -canvas   the window ground; nothing sits on it but other surfaces
- *   -surface  the raised accent — the header, the idea rows, and every text input
- *
- * Everything above -surface is a state, not a new material:
- *   -surface-hover < -surface-selected < -surface-active
- *
- * Hierarchy is still type weight and spacing, never colour (ARCHITECTURE.md §6.2).
- */
 .root
 {
     -text-primary: #ededed;
@@ -23,11 +11,6 @@
 
     -text-error: #ededed;
 
-    /*
-     * Modena derives every control it draws for us — scroll bars, tooltips, radio marks,
-     * dialog panes — from these four. Left at their defaults they stay light, and every
-     * control this file does not name explicitly renders as a white panel in a dark app.
-     */
     -fx-base: #232323;
     -fx-background: #151515;
     -fx-control-inner-background: #232323;
@@ -47,6 +30,65 @@
 .placeholder-label
 {
     -fx-text-fill: -text-secondary;
+}
+
+.root-stack
+{
+    -fx-background-color: -canvas;
+    -fx-border-color: -separator;
+}
+
+.title-bar
+{
+    -fx-background-color: -canvas;
+}
+
+.title-bar-name
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.caption-button
+{
+    -fx-background-color: transparent;
+}
+
+.caption-button:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.caption-button:pressed
+{
+    -fx-background-color: -surface-selected;
+}
+
+.caption-glyph
+{
+    -fx-fill: null;
+    -fx-stroke: -text-secondary;
+}
+
+.caption-button:hover .caption-glyph,
+.caption-button:pressed .caption-glyph
+{
+    -fx-stroke: -text-primary;
+}
+
+.caption-close:hover
+{
+    -fx-background-color: #c42b1c;
+}
+
+.caption-close:pressed
+{
+    -fx-background-color: #b0271a;
+}
+
+.caption-close:hover .caption-glyph,
+.caption-close:pressed .caption-glyph
+{
+    -fx-stroke: #ffffff;
 }
 
 .app-header
@@ -77,12 +119,6 @@
     -fx-opacity: 0.45;
 }
 
-/*
- * The gear borrows .secondary-button's material so it stays subordinate to + New Idea, the
- * only -surface-selected thing in the header. Focus is border COLOUR, following .filter-chip
- * and .sort-choice: on a control that already draws a 1px opaque -separator border, the
- * two-layer background trick .secondary-button uses would be painted over and never seen.
- */
 .icon-button
 {
     -fx-background-color: -surface;
@@ -131,10 +167,6 @@
     -fx-border-width: 0 0 1px 0;
 }
 
-/*
- * Below the last idea there is no list any more, so the empty cells draw neither fill
- * nor separator. The rule under the last filled cell is what closes the list.
- */
 .idea-list .list-cell:empty
 {
     -fx-background-color: transparent;
@@ -355,13 +387,6 @@
     -fx-background-color: -canvas;
 }
 
-/*
- * The rich writing surface. Four selectors because RichTextFX paints in four places, and
- * -fx-text-fill / -fx-highlight-fill -- the properties .text-input uses -- reach NONE of
- * them: the area draws its own Text, caret and selection nodes, which take -fx-fill and
- * -fx-stroke instead. Setting the TextArea properties here would look right in the CSS and
- * do nothing on screen.
- */
 .description-scroll
 {
     -fx-background-color: transparent;
@@ -593,7 +618,6 @@
     -fx-text-fill: -text-primary;
 }
 
-/* The divider that replaced the white focus ring. Width lives in base.css. */
 .detail-scroll
 {
     -fx-border-color: -separator transparent transparent transparent;
@@ -605,12 +629,6 @@
     -fx-border-color: -separator;
 }
 
-/*
- * :focus-visible, NOT :focused. openDetail() calls detailScroll.requestFocus(), so a
- * :focused rule here is lit every time the panel opens -- that is exactly what the old
- * white ring was. focus-visible (JavaFX 19+) only fires on keyboard traversal, so the
- * well keeps its quiet -separator outline until someone actually Tabs to it.
- */
 .detail-scroll:focus-visible .description-well
 {
     -fx-border-color: -text-secondary;
