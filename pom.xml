@@ -18,6 +18,7 @@
     <junit.version>5.12.2</junit.version>
     <assertj.version>3.27.3</assertj.version>
     <sqlite.version>3.49.1.0</sqlite.version>
+    <richtextfx.version>0.11.5</richtextfx.version>
 
     <main.class>com.emgi.timeline.Launcher</main.class>
   </properties>
@@ -46,10 +47,37 @@
       <version>${javafx.version}</version>
     </dependency>
 
+    <!--
+      Only for SwingFXUtils, which is the supported way to get pixels out of a clipboard
+      Image and into a PNG via ImageIO. Nothing in the app draws with Swing.
+    -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-swing</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
       <version>${sqlite.version}</version>
+    </dependency>
+
+    <!--
+      The description editor's writing surface. A JavaFX TextArea lays its whole content out
+      as one uniform run of text and cannot host a Node, so it can only ever show an image
+      as the literal characters of its ![](...) token. RichTextFX's GenericStyledArea can
+      embed arbitrary Nodes in the text flow, which is what puts the picture itself on screen.
+
+      Nothing below the view layer knows this exists: a description is still one string, and
+      DescriptionArea parses it in and serialises it back out. Pulls in reactfx, flowless,
+      undofx and wellbehavedfx transitively. Classpath-only, like everything else here, so it
+      does not disturb the no-module-info / jpackage-in-classpath-mode decision (§11 Risk 5).
+    -->
+    <dependency>
+      <groupId>org.fxmisc.richtext</groupId>
+      <artifactId>richtextfx</artifactId>
+      <version>${richtextfx.version}</version>
     </dependency>
 
     <dependency>
