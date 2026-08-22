@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox xmlns="http://javafx.com/javafx/21"
@@ -28,16 +29,25 @@
 
     <Label styleClass="field-label" text="Description"/>
 
-    <ScrollPane fx:id="blockScroll" styleClass="block-scroll"
-                fitToWidth="true" VBox.vgrow="ALWAYS">
-        <VBox fx:id="blockList" styleClass="block-list"/>
-    </ScrollPane>
+    <!--
+        One box, and a button floating over its bottom-right corner. The button is a
+        sibling in a StackPane rather than a row underneath so that the description reads
+        as a single uninterrupted writing surface, which was the whole point of dropping
+        the block editor. Its margin clears the writing surface's own scrollbar.
 
-    <HBox styleClass="add-block-row">
-        <Button fx:id="addTextButton" styleClass="secondary-button" text="+ Text"/>
-        <Button fx:id="addLinkButton" styleClass="secondary-button" text="+ Link"/>
-        <Button fx:id="addImageButton" styleClass="secondary-button" text="+ Image"/>
-    </HBox>
+        The writing surface itself is NOT declared here. It is a DescriptionArea, a
+        GenericStyledArea generic in three type parameters with no no-arg constructor, so
+        FXML cannot build one; IdeaEditorView.buildDescriptionArea inserts it at index 0 of
+        this stack, underneath the button. This placeholder is all the FXML can own.
+    -->
+    <StackPane fx:id="descriptionStack" styleClass="description-stack" VBox.vgrow="ALWAYS">
+        <Button fx:id="insertImageButton" styleClass="insert-image-button" text="+"
+                StackPane.alignment="BOTTOM_RIGHT">
+            <StackPane.margin>
+                <Insets bottom="12.0" right="16.0"/>
+            </StackPane.margin>
+        </Button>
+    </StackPane>
 
     <Label fx:id="descriptionErrorLabel" styleClass="error-label"/>
 
