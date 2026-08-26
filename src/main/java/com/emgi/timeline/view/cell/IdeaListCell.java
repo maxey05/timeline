@@ -5,10 +5,8 @@ import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.geometry.Pos;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -29,7 +27,8 @@ public final class IdeaListCell extends ListCell<Idea>
     public static final String IMAGES_ONLY_PREVIEW = "Attached images";
 
     private final IdeaDateFormatter dateFormatter;
-    private final ContextMenu contextMenu;
+    private final RowActions rowActions;
+    private final RowActionTray tray;
 
     private final VBox root = new VBox();
     private final HBox topRow = new HBox();
@@ -42,19 +41,13 @@ public final class IdeaListCell extends ListCell<Idea>
 
     public IdeaListCell(IdeaDateFormatter dateFormatter,
                         Consumer<Idea> onEdit,
-                        Consumer<Idea> onDelete)
+                        Consumer<Idea> onDelete,
+                        RowActions rowActions)
     {
         this.dateFormatter = Objects.requireNonNull(dateFormatter, "dateFormatter");
+        this.rowActions = Objects.requireNonNull(rowActions, "rowActions");
         Objects.requireNonNull(onEdit, "onEdit");
         Objects.requireNonNull(onDelete, "onDelete");
-
-        MenuItem edit = new MenuItem("Edit…");
-        edit.setOnAction(event -> onEdit.accept(getItem()));
-
-        MenuItem delete = new MenuItem("Delete…");
-        delete.setOnAction(event -> onDelete.accept(getItem()));
-
-        this.contextMenu = new ContextMenu(edit, delete);
 
         getStyleClass().add("idea-cell");
         titleLabel.getStyleClass().add("idea-title");
@@ -81,8 +74,59 @@ public final class IdeaListCell extends ListCell<Idea>
 
         root.getChildren().addAll(topRow, previewLabel, bottomRow);
 
+        this.tray = new RowActionTray(
+            root,
+            () -> fire(onEdit),
+            () -> fire(onDelete));
+
+        setOnContextMenuRequested(event ->
+        {
+            Idea idea = getItem();
+
+            if(idea == null)
+            {
+                return;
+            }
+
+            getListView().getSelectionModel().select(idea);
+            rowActions.toggle(idea.id());
+            event.consume();
+        });
+
+        rowActions.openProperty().addListener((observable, previous, current) ->
+        {
+            Idea idea = getItem();
+
+            if(idea == null)
+            {
+                tray.snapClosed();
+                return;
+            }
+
+            if(idea.id().equals(current))
+            {
+                tray.open(true);
+                return;
+            }
+
+            tray.close(true);
+        });
+
         setPrefWidth(0);
         setMaxWidth(Double.MAX_VALUE);
+    }
+
+    private void fire(Consumer<Idea> action)
+    {
+        Idea idea = getItem();
+
+        if(idea == null)
+        {
+            return;
+        }
+
+        rowActions.close();
+        action.accept(idea);
     }
 
     @Override
@@ -92,9 +136,9 @@ public final class IdeaListCell extends ListCell<Idea>
 
         if(empty || idea == null)
         {
+            tray.snapClosed();
             setGraphic(null);
             setText(null);
-            setContextMenu(null);
             return;
         }
 
@@ -117,9 +161,17 @@ public final class IdeaListCell extends ListCell<Idea>
 
         statusLabel.setText(glyphFor(idea.status()) + " " + idea.status().displayName());
 
-        setGraphic(root);
+        if(rowActions.isOpen(idea.id()))
+        {
+            tray.snapOpen();
+        }
+        else
+        {
+            tray.snapClosed();
+        }
+
+        setGraphic(tray);
         setText(null);
-        setContextMenu(contextMenu);
     }
 
     private static List<Label> chipsFor(Idea idea)
