@@ -53,6 +53,7 @@ import javafx.scene.shape.SVGPath;
 import javafx.stage.Window;
 import javafx.util.Duration;
 import javafx.scene.layout.Pane;
+import javafx.scene.text.TextFlow;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -70,6 +71,8 @@ public class MainView
     private static final double PANEL_MAX_WIDTH = 720;
     private static final double PANEL_MAX_HEIGHT = 620;
 
+    private static final String GREETING_HEAD = "Welcome to your timeline";
+
     private static final double BACKDROP_BLUR = 10;
 
     private static final Duration OVERLAY_FADE = Duration.millis(140);
@@ -83,11 +86,12 @@ public class MainView
     private final DisplayNameStore displayNames;
 
     private SortMenu sortMenu;
+    private GreetingReveal greetingReveal;
 
     private final RowActions rowActions = new RowActions();
 
     @FXML
-    private Label appTitle;
+    private TextFlow appTitle;
 
     @FXML
     private HBox titleBar;
@@ -326,6 +330,8 @@ public class MainView
 
                 windowChrome.install(current);
 
+                Platform.runLater(greetingReveal::play);
+                Platform.runLater(this::openNamePromptIfUnnamed);
                 Platform.runLater(this::openNamePromptIfUnnamed);
             }
         });
@@ -630,10 +636,22 @@ public class MainView
 
     private void buildHeader()
     {
+        greetingReveal = new GreetingReveal(appTitle);
+        greetingReveal.arm();
+
         displayNames.load().ifPresent(displayName::set);
 
-        appTitle.textProperty().bind(
-            Bindings.createStringBinding(() -> greeting(displayName.get()), displayName));
+
+        displayName.addListener((observable, previous, current) -> applyGreeting());
+        applyGreeting();
+    }
+
+    private void applyGreeting()
+    {
+        String name = displayName.get();
+        boolean named = name != null && !name.isBlank();
+
+        greetingReveal.setGreeting(named ? GREETING_HEAD + ", " : GREETING_HEAD + ".", named ? name + ".": "");
     }
 
     private static String greeting(String name)
