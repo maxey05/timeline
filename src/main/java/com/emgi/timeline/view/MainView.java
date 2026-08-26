@@ -78,12 +78,25 @@ public class MainView
     private static final Duration OVERLAY_FADE = Duration.millis(140);
 
     private static final double NAME_PANEL_WIDTH = 400;
+    private static final double CONFIRM_PANEL_WIDTH = 400;
 
     private final IdeaListController controller;
     private final IdeaDateFormatter dateFormatter;
     private final IdeaEditorOverlay editors;
     private final DescriptionRenderer descriptionRenderer;
     private final DisplayNameStore displayNames;
+
+    private boolean confirmOpen;
+
+    private ConfirmPrompt.Outcome confirmOutcome;
+
+    private Node confirmReturnFocus;
+
+    private final FadeTransition confirmFade = new FadeTransition(OVERLAY_FADE);
+
+    private final GaussianBlur editorBlur = new GaussianBlur(BACKDROP_BLUR);
+
+    private List<Node> confirmFocusRing = List.of();
 
     private SortMenu sortMenu;
     private GreetingReveal greetingReveal;
@@ -204,6 +217,27 @@ public class MainView
     @FXML
     private Button nameOkButton;
 
+    @FXML
+    private StackPane confirmOverlay;
+
+    @FXML
+    private Region confirmScrim;
+
+    @FXML
+    private VBox confirmPanel;
+
+    @FXML
+    private Label confirmTitle;
+
+    @FXML
+    private Label confirmMessage;
+
+    @FXML
+    private Button confirmAcceptButton;
+
+    @FXML
+    private Button confirmCancelButton;
+
     private final ToggleButton allTagsChip = new ToggleButton("All");
 
     private final StringProperty displayName = new SimpleStringProperty("");
@@ -259,7 +293,10 @@ public class MainView
             || detailEditButton == null
             || editorOverlay == null || editorScrim == null || editorHost == null
             || namePromptOverlay == null || namePromptScrim == null || namePromptPanel == null
-            || nameField == null || nameOkButton == null)
+            || nameField == null || nameOkButton == null
+            || confirmOverlay == null || confirmScrim == null || confirmPanel == null
+            || confirmTitle == null || confirmMessage == null
+            || confirmAcceptButton == null || confirmCancelButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
@@ -297,6 +334,7 @@ public class MainView
         buildDetailOverlay();
         buildEditorOverlay();
         buildNamePrompt();
+        buildConfirmOverlay();
         buildBackdrop();
         installKeyboard();
         installRowActions();
@@ -363,6 +401,12 @@ public class MainView
         if(editorClosing)
         {
             event.consume();
+            return;
+        }
+
+        if(confirmOpen)
+        {
+            onConfirmKey(event);
             return;
         }
 
@@ -850,6 +894,118 @@ public class MainView
         namePromptScrim.setOnMouseClicked(MouseEvent::consume);
     }
 
+    private void buildConfirmOverlay()
+    {
+        confirmOverlay.setVisible(false);
+        confirmOverlay.setOpacity(0);
+        confirmOverlay.managedProperty().bind(confirmOverlay.visibleProperty());
+        confirmFade.setNode(confirmOverlay);
+
+        confirmPanel.setMaxWidth(CONFIRM_PANEL_WIDTH);
+
+        confirmPanel.setMaxHeight(Region.USE_PREF_SIZE);
+
+        confirmAcceptButton.setOnAction(event -> resolveConfirm(true));
+        confirmCancelButton.setOnAction(event -> resolveConfirm(false));
+
+        confirmFocusRing = List.of(confirmAcceptButton, confirmCancelButton);
+
+        confirmScrim.setOnMouseClicked(MouseEvent::consume);
+    }
+
+    private void askConfirm(String title, String message, String confirmLabel, String cancelLabel, ConfirmPrompt.Outcome outcome)
+    {
+        if(confirmOpen)
+        {
+            return;
+        }
+
+        sortMenu.close();
+        rowActions.close();
+
+        Scene scene = ideaListView.getScene();
+
+        confirmOpen = true;
+        confirmOutcome = outcome;
+        confirmReturnFocus = scene == null ? null : scene.getFocusOwner();
+
+        confirmTitle.setText(title);
+        confirmMessage.setText(message);
+        confirmAcceptButton.setText(confirmLabel);
+        confirmCancelButton.setText(cancelLabel);
+
+        fadeIn(confirmOverlay, confirmFade);
+        syncBackdrop();
+
+        Platform.runLater(confirmCancelButton::requestFocus);
+    }
+
+    private void resolveConfirm(boolean confirmed)
+    {
+        if(!confirmOpen)
+        {
+            return;
+        }
+
+        ConfirmPrompt.Outcome outcome = confirmOutcome;
+        Node returnFocus = confirmReturnFocus;
+
+        confirmOpen = false;
+        confirmOutcome = null;
+        confirmReturnFocus = null;
+
+        fadeOut(confirmOverlay, confirmFade, this::syncBackdrop);
+
+        if(!confirmed)
+        {
+            if(returnFocus != null)
+            {
+                returnFocus.requestFocus();
+            }
+            else
+            {
+                restoreFocus();
+            }
+        }
+
+        if(outcome != null)
+        {
+            outcome.resolved(confirmed);
+        }
+    }
+
+    private void onConfirmKey(KeyEvent event)
+    {
+        if(event.getCode() == KeyCode.ESCAPE)
+        {
+            resolveConfirm(false);
+            event.consume();
+            return;
+        }
+
+        if(event.getCode() == KeyCode.ENTER)
+        {
+            Scene scene = ideaListView.getScene();
+            Node focused = scene == null ? null : scene.getFocusOwner();
+
+            resolveConfirm(focused == confirmAcceptButton);
+            event.consume();
+            return;
+        }
+
+        if(event.getCode() == KeyCode.TAB)
+        {
+            cycleFocus(confirmFocusRing, event.isShiftDown());
+            event.consume();
+            return;
+        }
+
+        if(event.isShortcutDown() || !isInside(event.getTarget(), confirmOverlay))
+        {
+            event.consume();
+        }
+    }
+
     private void openNamePromptIfUnnamed()
     {
         sortMenu.close();
@@ -898,11 +1054,16 @@ public class MainView
         contentBlur.radiusProperty().bind(
             Bindings.max(
                 Bindings.max(detailOverlay.opacityProperty(), editorOverlay.opacityProperty()),
-                namePromptOverlay.opacityProperty())
-                    .multiply(BACKDROP_BLUR));
+                Bindings.max(namePromptOverlay.opacityProperty(),
+                    confirmOverlay.opacityProperty()))
+                        .multiply(BACKDROP_BLUR));
 
         detailBlur.radiusProperty().bind(
-            editorOverlay.opacityProperty().multiply(BACKDROP_BLUR));
+            Bindings.max(editorOverlay.opacityProperty(), confirmOverlay.opacityProperty())
+                .multiply(BACKDROP_BLUR));
+
+        editorBlur.radiusProperty().bind(
+            confirmOverlay.opacityProperty().multiply(BACKDROP_BLUR));
     }
 
     private static void fadeIn(Node overlay, FadeTransition fade)
@@ -934,9 +1095,12 @@ public class MainView
 
     private void syncBackdrop()
     {
-        contentRoot.setEffect(editorOpen || detailOpen || namePromptOpen ? contentBlur : null);
+        contentRoot.setEffect(
+            editorOpen || detailOpen || namePromptOpen || confirmOpen ? contentBlur : null);
 
-        detailOverlay.setEffect(editorOpen ? detailBlur : null);
+        detailOverlay.setEffect(editorOpen || confirmOpen ? detailBlur : null);
+
+        editorOverlay.setEffect(confirmOpen ? editorBlur : null);
     }
 
     private void openEditor(IdeaEditorOverlay.Session session)
@@ -951,7 +1115,7 @@ public class MainView
         fadeIn(editorOverlay, editorFade);
         syncBackdrop();
 
-        session.view().attach(window(), ideaListView.getScene(), () -> closeEditor(session));
+        session.view().attach(window(), ideaListView.getScene(), () -> closeEditor(session), this::askConfirm);
     }
 
     private void closeEditor(IdeaEditorOverlay.Session session)
@@ -1037,7 +1201,7 @@ public class MainView
 
     private void clearIdeaSelection()
     {
-        if(detailOpen || editorOpen || editorClosing || namePromptOpen)
+        if(detailOpen || editorOpen || editorClosing || namePromptOpen || confirmOpen)
         {
             return;
         }
