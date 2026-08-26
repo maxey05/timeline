@@ -19,8 +19,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
@@ -52,12 +50,6 @@ public class IdeaEditorView
 {
     private static final String ERROR_PREFIX = "⚠ ";
 
-    private static final ButtonType DISCARD =
-            new ButtonType("Discard", ButtonBar.ButtonData.OK_DONE);
-
-    private static final ButtonType KEEP_EDITING =
-            new ButtonType("Keep editing", ButtonBar.ButtonData.CANCEL_CLOSE);
-
     private static final List<String> IMAGE_EXTENSIONS =
             List.of("png", "jpg", "jpeg", "gif", "bmp");
 
@@ -70,6 +62,10 @@ public class IdeaEditorView
     private Scene scene;
 
     private Runnable closeAction;
+
+    private ConfirmPrompt confirmPrompt;
+
+    private boolean promptOpen;
 
     private final EventHandler<KeyEvent> keyFilter = this::onEditorKey;
 
@@ -116,11 +112,12 @@ public class IdeaEditorView
         this.imageStore = Objects.requireNonNull(imageStore, "imageStore");
     }
 
-    void attach(Window owner, Scene scene, Runnable closeAction)
+    void attach(Window owner, Scene scene, Runnable closeAction, ConfirmPrompt confirmPrompt)
     {
         this.owner = owner;
         this.scene = Objects.requireNonNull(scene, "scene");
         this.closeAction = Objects.requireNonNull(closeAction, "closeAction");
+        this.confirmPrompt = Objects.requireNonNull(confirmPrompt, "confirmPrompt");
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, keyFilter);
 
@@ -142,14 +139,33 @@ public class IdeaEditorView
 
         scene = null;
         closeAction = null;
+        confirmPrompt = null;
+        promptOpen = false;
     }
 
     void requestClose()
     {
-        if(confirmDiscard())
+        if(!controller.isDirty())
         {
             close();
+            return;
         }
+
+        if(promptOpen || confirmPrompt == null)
+        {
+            return;
+        }
+
+        promptOpen = true;
+
+        confirmPrompt.ask(
+            "Discard your changes?",
+            controller.isEditing()
+                ? "Your edits to this idea haven't been saved."
+                : "This idea hasn't been saved.",
+            "Discard",
+            "Keep editing",
+            this::onDiscardResolved);
     }
 
     List<Node> focusRing()
@@ -243,33 +259,21 @@ public class IdeaEditorView
         });
     }
 
-    private boolean confirmDiscard()
+    private void onDiscardResolved(boolean confirmed)
     {
-        if(!controller.isDirty())
-        {
-            return true;
-        }
+        promptOpen = false;
 
-        Alert confirm = new Alert(AlertType.CONFIRMATION);
-        Theme.applyTo(confirm);
-        confirm.initOwner(owner);
-        confirm.setTitle("Timeline");
-        confirm.setHeaderText("Discard your changes?");
-        confirm.setContentText(controller.isEditing()
-            ? "Your edits to this idea haven't been saved."
-            : "This idea hasn't been saved.");
-        confirm.getButtonTypes().setAll(KEEP_EDITING, DISCARD);
-
-        Button keep = (Button) confirm.getDialogPane().lookupButton(KEEP_EDITING);
-        keep.setDefaultButton(true);
-        Button discard = (Button) confirm.getDialogPane().lookupButton(DISCARD);
-        discard.setDefaultButton(false);
-
-        return confirm.showAndWait().filter(choice -> choice == DISCARD).isPresent();
+        if(confirmed)
+            close();
     }
 
     private void onEditorKey(KeyEvent event)
     {
+        if(promptOpen)
+        {
+            return;
+        }
+
         if(!event.isShortcutDown())
         {
             return;
