@@ -1,5 +1,6 @@
 package com.emgi.timeline.domain.model;
 
+import com.emgi.timeline.domain.content.BulletSegment;
 import com.emgi.timeline.domain.content.DescriptionParser;
 import com.emgi.timeline.domain.content.DescriptionSegment;
 import com.emgi.timeline.domain.content.ImageSegment;
@@ -48,17 +49,21 @@ public record Description(String text) {
             throw new IllegalArgumentException("maxChars must be at least 1, was " + maxChars);
         }
 
-        StringBuilder joined = new StringBuilder();
+        String firstLine = "";
         for (DescriptionSegment segment : DescriptionParser.parse(text)) {
-            if (segment instanceof ParagraphSegment paragraph) {
-                if (!joined.isEmpty()) {
-                    joined.append(' ');
-                }
-                joined.append(paragraph.plainText());
+            String piece = switch (segment) {
+                case ParagraphSegment paragraph -> firstLineOf(paragraph.plainText());
+                case BulletSegment bullet -> bullet.plainText();
+                case ImageSegment image -> "";
+            };
+
+            if (!piece.isEmpty()) {
+                firstLine = piece;
+                break;
             }
         }
 
-        String flattened = joined.toString().replaceAll("\\s+", " ").strip();
+        String flattened = firstLine.replaceAll("\\s+", " ").strip();
         if (flattened.length() <= maxChars) {
             return flattened;
         }
@@ -68,5 +73,11 @@ public record Description(String text) {
             cut--;
         }
         return flattened.substring(0, cut).stripTrailing() + ELLIPSIS;
+    }
+
+    private static String firstLineOf(String text)
+    {
+        int newline = text.indexOf('\n');
+        return newline == -1 ? text : text.substring(0, newline);
     }
 }
