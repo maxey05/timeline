@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&display=swap');
+
 .root
 {
     -fx-font-family: "Arimo", "Liberation Sans", "Arial", sans-serif;
@@ -65,8 +67,9 @@
 
 .app-title
 {
-    -fx-font-size: 16px;
+    -fx-font-size: 20px;
     -fx-font-weight: 600;
+    -fx-font-family: "PT Serif", serif;
 }
 
 .primary-button
