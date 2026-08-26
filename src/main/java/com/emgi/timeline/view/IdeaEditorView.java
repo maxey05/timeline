@@ -35,7 +35,6 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import org.fxmisc.flowless.VirtualizedScrollPane;
-import org.reactfx.Subscription;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -97,8 +96,6 @@ public class IdeaEditorView
 
     private DescriptionArea descriptionArea;
 
-    private Subscription descriptionChanges;
-
     private boolean loadingDescription;
 
     @FXML
@@ -137,14 +134,9 @@ public class IdeaEditorView
             scene.removeEventFilter(KeyEvent.KEY_PRESSED, keyFilter);
         }
 
-        if(descriptionChanges != null)
-        {
-            descriptionChanges.unsubscribe();
-            descriptionChanges = null;
-        }
-
         if(descriptionArea != null)
         {
+            descriptionArea.setOnDescriptionChanged(null);
             descriptionArea.dispose();
         }
 
@@ -242,7 +234,7 @@ public class IdeaEditorView
         descriptionArea.load(controller.descriptionProperty().get());
         loadingDescription = false;
 
-        descriptionChanges = descriptionArea.plainTextChanges().subscribe(change ->
+        descriptionArea.setOnDescriptionChanged(() ->
         {
             if(!loadingDescription)
             {
