@@ -72,6 +72,11 @@
     -fx-font-family: "PT Serif", serif;
 }
 
+.app-title-letter
+{
+    -fx-font-smoothing-type: gray;
+}
+
 .primary-button
 {
     -fx-padding: 6px 14px;
