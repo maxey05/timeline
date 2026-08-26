@@ -122,12 +122,13 @@
 
 .idea-cell
 {
-    -fx-padding: 11px 16px;
+    -fx-padding: 0;
 }
 
 .idea-cell-root
 {
     -fx-spacing: 8px;
+    -fx-padding: 11px 16px;
 }
 
 .idea-title
@@ -166,6 +167,43 @@
 {
     -fx-font-size: 12px;
     -fx-padding: 0 0 0 12px;
+}
+
+.row-action-tray
+{
+    -fx-spacing: 0;
+}
+
+.row-action-item
+{
+    -fx-min-width: 75px;
+    -fx-pref-width: 75px;
+    -fx-max-width: 75px;
+    -fx-padding: 0;
+    -fx-font-size: 11px;
+    -fx-graphic-text-gap: 5px;
+    -fx-background-radius: 0;
+    -fx-background-insets: 0;
+    -fx-border-radius: 0;
+    -fx-border-width: 0 0 0 1px;
+    -fx-cursor: hand;
+}
+
+.row-action-box
+{
+    -fx-min-width: 16px;
+    -fx-max-width: 16px;
+    -fx-min-height: 16px;
+    -fx-max-height: 16px;
+    -fx-padding: 0;
+}
+
+.row-action-glyph
+{
+    -fx-fill: null;
+    -fx-stroke-width: 2px;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
 }
 
 .empty-state
@@ -558,4 +596,23 @@
 {
     -fx-spacing: 8px;
     -fx-padding: 6px 0 0 0;
+}
+
+.bullet-marker
+{
+    -fx-font-size: 13px;
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-padding: 0;
+    -fx-alignment: top-left;
+}
+
+.description-list
+{
+    -fx-spacing: 4px;
+}
+
+.description-bullet
+{
+    -fx-spacing: 6px;
 }
