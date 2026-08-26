@@ -1,5 +1,6 @@
 package com.emgi.timeline.view.content;
 
+import com.emgi.timeline.domain.content.BulletSegment;
 import com.emgi.timeline.domain.content.DescriptionParser;
 import com.emgi.timeline.domain.content.DescriptionSegment;
 import com.emgi.timeline.domain.content.ImageSegment;
@@ -10,7 +11,11 @@ import javafx.scene.Node;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.geometry.Pos;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
@@ -27,6 +32,8 @@ public final class DescriptionRenderer
 
     private static final String NO_ALT_TEXT = "Image unavailable";
 
+    private static final String MARKER = "•";
+
     private final Consumer<URI> linkOpener;
 
     public DescriptionRenderer(Consumer<URI> linkOpener)
@@ -41,9 +48,28 @@ public final class DescriptionRenderer
         List<DescriptionSegment> segments = DescriptionParser.parse(description.text());
         List<Node> nodes = new ArrayList<>(segments.size());
 
-        for(DescriptionSegment segment : segments)
+        int index = 0;
+
+        while(index < segments.size())
         {
-            nodes.add(render(segment));
+            if(!(segments.get(index) instanceof BulletSegment))
+            {
+                nodes.add(render(segments.get(index)));
+                index++;
+                continue;
+            }
+
+            VBox list = new VBox();
+            list.getStyleClass().add("description-list");
+
+            while(index < segments.size()
+                && segments.get(index) instanceof BulletSegment bullet)
+            {
+                list.getChildren().add(renderBullet(bullet));
+                index++;
+            }
+
+            nodes.add(list);
         }
 
         VBox column = new VBox();
@@ -59,15 +85,37 @@ public final class DescriptionRenderer
         return switch(segment)
         {
             case ParagraphSegment paragraph -> renderParagraph(paragraph);
+            case BulletSegment bullet -> renderBullet(bullet);
             case ImageSegment image -> renderImage(image);
         };
     }
 
     private Node renderParagraph(ParagraphSegment paragraph)
     {
-        List<Node> pieces = new ArrayList<>(paragraph.runs().size());
+        return flowOf(paragraph.runs());
+    }
 
-        for(TextRun run : paragraph.runs())
+    private Node renderBullet(BulletSegment bullet)
+    {
+        Label marker = new Label(MARKER);
+        marker.getStyleClass().add("bullet-marker");
+        marker.setMinWidth(Region.USE_PREF_SIZE);
+
+        TextFlow flow = flowOf(bullet.runs());
+
+        HBox row = new HBox(marker, flow);
+        row.getStyleClass().add("description-bullet");
+        row.setAlignment(Pos.TOP_LEFT);
+        row.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(flow, Priority.ALWAYS);
+        return row;
+    }
+
+    private TextFlow flowOf(List<TextRun> runs)
+    {
+        List<Node> pieces = new ArrayList<>(runs.size());
+
+        for(TextRun run : runs)
         {
             pieces.add(run.isLink() ? linkFor(run) : textFor(run));
         }
