@@ -1,11 +1,18 @@
 package com.emgi.timeline.view.content;
 
+import com.emgi.timeline.domain.content.BulletSegment;
 import com.emgi.timeline.domain.content.DescriptionParser;
 import com.emgi.timeline.domain.content.DescriptionSegment;
+import com.emgi.timeline.domain.content.DescriptionWriter;
 import com.emgi.timeline.domain.content.ImageSegment;
 import com.emgi.timeline.domain.content.ParagraphSegment;
+import javafx.geometry.Pos;
 import javafx.geometry.VPos;
 import javafx.scene.Node;
+import javafx.scene.control.Label;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.Region;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextFlow;
 import org.fxmisc.richtext.GenericStyledArea;
@@ -15,9 +22,11 @@ import org.fxmisc.richtext.model.ReadOnlyStyledDocument;
 import org.fxmisc.richtext.model.SegmentOps;
 import org.fxmisc.richtext.model.StyledSegment;
 import org.fxmisc.richtext.model.TextOps;
+import org.reactfx.Subscription;
 import org.reactfx.util.Either;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +35,13 @@ public final class DescriptionArea
 {
     public static final String CENTERED = "centered";
 
+    public static final String BULLET = "bullet";
+
     public static final String PLAIN = "";
+
+    private static final String MARKER = "•";
+
+    private static final double MARKER_WIDTH = 18;
 
     private static final TextOps<String, String> TEXT_OPS = SegmentOps.styledTextOps();
 
@@ -34,6 +49,12 @@ public final class DescriptionArea
 
     private static final TextOps<Either<String, EditorImage>, String> SEGMENT_OPS =
             TEXT_OPS._or(IMAGE_OPS, (left, right) -> Optional.empty());
+
+    private static final Runnable NOTHING = () -> { };
+
+    private final Subscription textChanges;
+
+    private Runnable descriptionChanged = NOTHING;
 
     public DescriptionArea()
     {
@@ -45,6 +66,153 @@ public final class DescriptionArea
 
         setWrapText(true);
         getStyleClass().add("description-area");
+        setParagraphGraphicFactory(this::markerFor);
+
+        addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+        addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
+
+        textChanges = plainTextChanges().subscribe(change -> notifyChanged());
+    }
+
+    public void setOnDescriptionChanged(Runnable listener)
+    {
+        descriptionChanged = listener == null ? NOTHING : listener;
+    }
+
+    @Override
+    public void dispose()
+    {
+        descriptionChanged = NOTHING;
+        textChanges.unsubscribe();
+        super.dispose();
+    }
+
+    private void notifyChanged()
+    {
+        descriptionChanged.run();
+    }
+
+
+    private Node markerFor(int index)
+    {
+        if(index >= getParagraphs().size()
+            || !BULLET.equals(getParagraph(index).getParagraphStyle()))
+        {
+            Region blank = new Region();
+            blank.setMinWidth(0);
+            blank.setPrefWidth(0);
+            blank.setMaxWidth(0);
+            return blank;
+        }
+
+        Label marker = new Label(MARKER);
+        marker.getStyleClass().add("bullet-marker");
+        marker.setAlignment(Pos.TOP_LEFT);
+        marker.setMinWidth(MARKER_WIDTH);
+        marker.setPrefWidth(MARKER_WIDTH);
+        marker.setMaxWidth(MARKER_WIDTH);
+        return marker;
+    }
+
+    private void applyStyle(int index, String style)
+    {
+        if(style.equals(getParagraph(index).getParagraphStyle()))
+        {
+            return;
+        }
+
+        setParagraphStyle(index, style);
+        recreateParagraphGraphic(index);
+        notifyChanged();
+    }
+
+
+    private void onKeyPressed(KeyEvent event)
+    {
+        if(event.isShortcutDown() || event.isAltDown())
+        {
+            return;
+        }
+
+        if(event.getCode() == KeyCode.ENTER)
+        {
+            onEnter(event);
+        }
+        else if(event.getCode() == KeyCode.BACK_SPACE)
+        {
+            onBackspace(event);
+        }
+    }
+
+    private void onEnter(KeyEvent event)
+    {
+        int index = getCurrentParagraph();
+
+        if(BULLET.equals(getParagraph(index).getParagraphStyle()))
+        {
+            if(getParagraph(index).getText().isEmpty())
+            {
+                applyStyle(index, PLAIN);
+                requestFollowCaret();
+                event.consume();
+                return;
+            }
+
+            replaceSelection("\n");
+            applyStyle(getCurrentParagraph(), BULLET);
+            restyleParagraphs();
+            requestFollowCaret();
+            event.consume();
+            return;
+        }
+
+        replaceSelection("\n");
+        restyleParagraphs();
+        requestFollowCaret();
+        event.consume();
+    }
+
+    private void onBackspace(KeyEvent event)
+    {
+        if(event.isShiftDown() || getSelection().getLength() > 0 || getCaretColumn() != 0)
+        {
+            return;
+        }
+
+        int index = getCurrentParagraph();
+
+        if(!BULLET.equals(getParagraph(index).getParagraphStyle()))
+        {
+            return;
+        }
+
+        applyStyle(index, PLAIN);
+        event.consume();
+    }
+
+    private void onKeyTyped(KeyEvent event)
+    {
+        if(event.isShortcutDown() || event.isAltDown()
+            || !" ".equals(event.getCharacter())
+            || getSelection().getLength() > 0
+            || getCaretColumn() != 1)
+        {
+            return;
+        }
+
+        int index = getCurrentParagraph();
+
+        if(!"-".equals(getParagraph(index).getText()))
+        {
+            return;
+        }
+
+        int start = getAbsolutePosition(index, 0);
+
+        deleteText(start, start + 1);
+        applyStyle(index, BULLET);
+        requestFollowCaret();
+        event.consume();
     }
 
 
@@ -89,6 +257,11 @@ public final class DescriptionArea
             {
                 appendText(paragraph.plainText());
             }
+            else if(segment instanceof BulletSegment bullet)
+            {
+                appendText(bullet.plainText());
+                setParagraphStyle(getParagraphs().size() - 1, BULLET);
+            }
             else if(segment instanceof ImageSegment image)
             {
                 insert(getLength(), documentFor(EditorImage.of(image.source())));
@@ -96,60 +269,53 @@ public final class DescriptionArea
         }
 
         restyleParagraphs();
+
+        for(int index = 0; index < getParagraphs().size(); index++)
+        {
+            recreateParagraphGraphic(index);
+        }
+
         moveTo(0);
     }
 
     public String describedText()
     {
-        StringBuilder text = new StringBuilder();
-
         List<Paragraph<String, Either<String, EditorImage>, String>> paragraphs =
                 getParagraphs();
 
-        for(int index = 0; index < paragraphs.size(); index++)
-        {
-            if(index > 0)
-            {
-                endLine(text);
-            }
+        List<DescriptionWriter.Line> lines = new ArrayList<>(paragraphs.size());
 
-            appendParagraph(text, paragraphs.get(index));
+        for(Paragraph<String, Either<String, EditorImage>, String> paragraph : paragraphs)
+        {
+            lines.add(lineFor(paragraph));
         }
 
-        return text.toString();
+        return DescriptionWriter.write(lines);
     }
 
-    private static void appendParagraph(
-            StringBuilder text,
+    private static DescriptionWriter.Line lineFor(
             Paragraph<String, Either<String, EditorImage>, String> paragraph)
     {
+        List<DescriptionWriter.Piece> pieces = new ArrayList<>();
+
         for(Either<String, EditorImage> segment : paragraph.getSegments())
         {
             if(segment.isLeft())
             {
-                text.append(segment.getLeft());
+                pieces.add(new DescriptionWriter.Words(segment.getLeft()));
                 continue;
             }
 
             EditorImage image = segment.getRight();
 
-            if(image.isEmpty())
+            if(!image.isEmpty())
             {
-                continue;
+                pieces.add(new DescriptionWriter.Picture(image.source()));
             }
-
-            endLine(text);
-            text.append(DescriptionParser.imageToken(image.source(), ""));
-            text.append('\n');
         }
-    }
 
-    private static void endLine(StringBuilder text)
-    {
-        if(text.length() > 0 && text.charAt(text.length() - 1) != '\n')
-        {
-            text.append('\n');
-        }
+        return new DescriptionWriter.Line(
+                BULLET.equals(paragraph.getParagraphStyle()), pieces);
     }
 
 
@@ -189,12 +355,13 @@ public final class DescriptionArea
             Paragraph<String, Either<String, EditorImage>, String> paragraph =
                     getParagraph(index);
 
-            String style = holdsImage(paragraph) ? CENTERED : PLAIN;
+            String current = paragraph.getParagraphStyle();
 
-            if(!style.equals(paragraph.getParagraphStyle()))
-            {
-                setParagraphStyle(index, style);
-            }
+            String style = holdsImage(paragraph) ? CENTERED
+                         : BULLET.equals(current) ? BULLET
+                         : PLAIN;
+
+            applyStyle(index, style);
         }
     }
 
