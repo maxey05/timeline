@@ -6,6 +6,7 @@ import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.domain.query.SortOrder;
 import com.emgi.timeline.settings.DisplayNameStore;
 import com.emgi.timeline.view.cell.IdeaListCell;
+import com.emgi.timeline.view.cell.RowActions;
 import com.emgi.timeline.view.content.DescriptionRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
 import javafx.animation.FadeTransition;
@@ -41,6 +42,7 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -81,6 +83,8 @@ public class MainView
     private final DisplayNameStore displayNames;
 
     private SortMenu sortMenu;
+
+    private final RowActions rowActions = new RowActions();
 
     @FXML
     private Label appTitle;
@@ -260,7 +264,8 @@ public class MainView
 
         ideaListView.setItems(controller.ideas());
         ideaListView.setCellFactory(
-            list -> new IdeaListCell(dateFormatter, this::editIdea, this::deleteIdea));
+            list -> new IdeaListCell(
+                dateFormatter, this::editIdea, this::deleteIdea, rowActions));
 
         ideaListView.setPlaceholder(new Region());
 
@@ -290,8 +295,10 @@ public class MainView
         buildNamePrompt();
         buildBackdrop();
         installKeyboard();
+        installRowActions();
 
         ideaListView.setOnMouseClicked(this::onListClick);
+        installSelectionDismissal();
     }
 
     private void installKeyboard()
@@ -311,11 +318,25 @@ public class MainView
                 installAccelerators(current);
                 current.addEventFilter(KeyEvent.KEY_PRESSED, this::onSceneKey);
 
+                current.widthProperty().addListener(
+                    (width, previousWidth, currentWidth) -> rowActions.close());
+
+                current.heightProperty().addListener(
+                    (height, previousHeight, currentHeight) -> rowActions.close());
+
                 windowChrome.install(current);
 
                 Platform.runLater(this::openNamePromptIfUnnamed);
             }
         });
+    }
+
+    private void installRowActions()
+    {
+        ideaListView.addEventFilter(ScrollEvent.ANY, event -> rowActions.close());
+
+        controller.ideas().addListener(
+            (ListChangeListener<Idea>) change -> rowActions.close());
     }
 
     private void installAccelerators(Scene scene)
@@ -336,6 +357,18 @@ public class MainView
         if(editorClosing)
         {
             event.consume();
+            return;
+        }
+
+        if(rowActions.isOpen())
+        {
+            if(event.getCode() == KeyCode.ESCAPE)
+            {
+                rowActions.close();
+                ideaListView.requestFocus();
+                event.consume();
+            }
+
             return;
         }
 
@@ -364,6 +397,12 @@ public class MainView
 
         if(!detailOpen)
         {
+            if(event.getCode() == KeyCode.ESCAPE && ideaListView.isFocused() && ideaListView.getSelectionModel().getSelectedItem() != null)
+            {
+                clearIdeaSelection();
+                event.consume();
+            }
+
             return;
         }
 
@@ -485,13 +524,40 @@ public class MainView
         }
 
         ListCell<?> cell = enclosingCell(event.getPickResult().getIntersectedNode());
+        boolean onIdea = cell != null && !cell.isEmpty();
 
-        if(cell == null || cell.isEmpty())
+        if(rowActions.isOpen())
         {
+            rowActions.close();
+
+            if(onIdea)
+            {
+                return;
+            }
+        }
+
+        if(!onIdea)
+        {
+            clearIdeaSelection();
             return;
         }
 
         openDetail();
+    }
+
+    private void installSelectionDismissal()
+    {
+        contentRoot.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if(event.getButton() != MouseButton.PRIMARY)
+            {
+                return;
+            }
+
+            if(isInside(event.getTarget(), titleBar) || isInside(event.getTarget(), ideaListView))
+                return;
+
+            clearIdeaSelection();
+        });
     }
 
     private static ListCell<?> enclosingCell(Node node)
@@ -526,6 +592,11 @@ public class MainView
             case DELETE ->
             {
                 deleteIdea(selected);
+                event.consume();
+            }
+            case CONTEXT_MENU ->
+            {
+                rowActions.toggle(selected.id());
                 event.consume();
             }
             default ->
@@ -692,7 +763,15 @@ public class MainView
         detailEditButton.setOnAction(event -> editIdea(controller.selectedIdeaProperty().get()));
 
         ideaListView.getSelectionModel().selectedItemProperty().addListener(
-            (observable, previous, current) -> controller.select(current));
+            (observable, previous, current) ->
+            {
+                controller.select(current);
+
+                if(current == null || !rowActions.isOpen(current.id()))
+                {
+                    rowActions.close();
+                }
+            });
 
         controller.selectedIdeaProperty().addListener(
             (observable, previous, current) ->
@@ -756,6 +835,7 @@ public class MainView
     private void openNamePromptIfUnnamed()
     {
         sortMenu.close();
+        rowActions.close();
 
         if(namePromptOpen || displayNames.load().isPresent())
         {
@@ -844,6 +924,7 @@ public class MainView
     private void openEditor(IdeaEditorOverlay.Session session)
     {
         sortMenu.close();
+        rowActions.close();
 
         editorSession = session;
         editorOpen = true;
@@ -908,6 +989,7 @@ public class MainView
     private void openDetail()
     {
         sortMenu.close();
+        rowActions.close();
 
         Idea idea = controller.selectedIdeaProperty().get();
 
@@ -933,6 +1015,17 @@ public class MainView
         detailOpen = false;
         fadeOut(detailOverlay, detailFade, this::syncBackdrop);
         ideaListView.requestFocus();
+    }
+
+    private void clearIdeaSelection()
+    {
+        if(detailOpen || editorOpen || editorClosing || namePromptOpen)
+        {
+            return;
+        }
+
+        rowActions.close();
+        ideaListView.getSelectionModel().clearSelection();
     }
 
     private void showDetail(Idea idea)
@@ -988,6 +1081,8 @@ public class MainView
 
     private void deleteIdea(Idea idea)
     {
+        rowActions.close();
+
         if(idea == null)
         {
             return;
