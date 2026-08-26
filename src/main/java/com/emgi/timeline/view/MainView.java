@@ -25,7 +25,6 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -51,7 +50,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.Window;
 import javafx.util.Duration;
-import javafx.util.StringConverter;
+import javafx.scene.layout.Pane;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -80,6 +79,8 @@ public class MainView
     private final IdeaEditorOverlay editors;
     private final DescriptionRenderer descriptionRenderer;
     private final DisplayNameStore displayNames;
+
+    private SortMenu sortMenu;
 
     @FXML
     private Label appTitle;
@@ -118,7 +119,16 @@ public class MainView
     private TextField searchField;
 
     @FXML
-    private ComboBox<SortOrder> sortChoice;
+    private ToggleButton sortToggle;
+
+    @FXML
+    private Label sortLabel;
+
+    @FXML
+    private SVGPath sortChevron;
+
+    @FXML
+    private Pane sortMenuLayer;
 
     @FXML
     private HBox tagFilterRow;
@@ -232,7 +242,8 @@ public class MainView
             || maximizeButton == null || maximizeGlyph == null || closeButton == null
             || contentRoot == null || ideaListView == null || emptyState == null || newIdeaButton == null
             || settingsButton == null
-            || searchField == null || sortChoice == null || tagFilterRow == null
+            || searchField == null || sortToggle == null || sortLabel == null
+            || sortChevron == null || sortMenuLayer == null || tagFilterRow == null
             || tagFilterPane == null || noMatchesState == null || clearFiltersButton == null
             || detailOverlay == null || detailScrim == null || detailPanel == null
             || detailTitle == null || detailMeta == null || detailTags == null
@@ -325,6 +336,17 @@ public class MainView
         if(editorClosing)
         {
             event.consume();
+            return;
+        }
+
+        if(sortMenu != null && sortMenu.isOpen())
+        {
+            if(event.getCode() == KeyCode.ESCAPE)
+            {
+                sortMenu.close();
+                event.consume();
+            }
+
             return;
         }
 
@@ -586,22 +608,9 @@ public class MainView
     {
         searchField.textProperty().bindBidirectional(controller.searchTextProperty());
 
-        sortChoice.getItems().setAll(SortOrder.values());
-        sortChoice.setConverter(new StringConverter<SortOrder>()
-        {
-            @Override
-            public String toString(SortOrder order)
-            {
-                return order == null ? "" : order.displayName();
-            }
-
-            @Override
-            public SortOrder fromString(String text)
-            {
-                throw new UnsupportedOperationException("SortOrder is chosen, never typed");
-            }
-        });
-        sortChoice.valueProperty().bindBidirectional(controller.sortOrderProperty());
+        sortMenu = new SortMenu(sortToggle, sortLabel, sortChevron, sortMenuLayer);
+        sortMenu.install();
+        sortMenu.valueProperty().bindBidirectional(controller.sortOrderProperty());
 
         allTagsChip.getStyleClass().add("filter-chip");
         allTagsChip.setOnAction(event ->
@@ -746,6 +755,8 @@ public class MainView
 
     private void openNamePromptIfUnnamed()
     {
+        sortMenu.close();
+
         if(namePromptOpen || displayNames.load().isPresent())
         {
             return;
@@ -832,6 +843,8 @@ public class MainView
 
     private void openEditor(IdeaEditorOverlay.Session session)
     {
+        sortMenu.close();
+
         editorSession = session;
         editorOpen = true;
 
@@ -894,6 +907,8 @@ public class MainView
 
     private void openDetail()
     {
+        sortMenu.close();
+
         Idea idea = controller.selectedIdeaProperty().get();
 
         if(idea == null || detailOpen)
