@@ -12,6 +12,9 @@ public final class DescriptionParser {
     private static final Pattern IMAGE_LINE =
             Pattern.compile("^\\s*!\\[([^\\]]*)\\]\\((\\S+)\\)\\s*$");
 
+    private static final Pattern BULLET_LINE =
+            Pattern.compile("^-\\x20(.*)$");
+
     private static final Pattern ADDRESS =
             Pattern.compile("(?i)(?:https?://|file://|www\\.)\\S+");
 
@@ -32,13 +35,21 @@ public final class DescriptionParser {
             Matcher matcher = IMAGE_LINE.matcher(line);
             URI source = matcher.matches() ? asUri(matcher.group(2)) : null;
 
-            if (source == null) {
-                pending.add(line);
+            if (source != null) {
+                flush(pending, segments);
+                segments.add(new ImageSegment(source, matcher.group(1).strip()));
                 continue;
             }
 
-            flush(pending, segments);
-            segments.add(new ImageSegment(source, matcher.group(1).strip()));
+            Matcher bullet = BULLET_LINE.matcher(line);
+
+            if (bullet.matches()) {
+                flush(pending, segments);
+                segments.add(new BulletSegment(runsIn(bullet.group(1))));
+                continue;
+            }
+
+            pending.add(line);
         }
 
         flush(pending, segments);
