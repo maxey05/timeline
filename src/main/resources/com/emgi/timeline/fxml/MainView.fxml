@@ -173,5 +173,23 @@
         </VBox>
 
     </StackPane>
+        <StackPane fx:id="confirmOverlay" styleClass="confirm-overlay" visible="false">
+
+        <Region fx:id="confirmScrim" styleClass="confirm-scrim"/>
+
+        <VBox fx:id="confirmPanel" styleClass="confirm-panel">
+
+            <Label fx:id="confirmTitle" styleClass="confirm-title" wrapText="true"/>
+
+            <Label fx:id="confirmMessage" styleClass="confirm-message" wrapText="true"/>
+
+            <HBox styleClass="confirm-footer" alignment="CENTER_RIGHT">
+                <Button fx:id="confirmAcceptButton" styleClass="secondary-button, confirm-destructive"/>
+                <Button fx:id="confirmCancelButton" styleClass="primary-button"/>
+            </HBox>
+
+        </VBox>
+
+    </StackPane>
 
 </StackPane>
