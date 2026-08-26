@@ -5,6 +5,7 @@ import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -26,13 +27,12 @@ import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.SVGPath;
 import javafx.util.Duration;
-import javafx.appliaction.Platform;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public final class SortMenu 
+public final class SortMenu
 {
     private static final Duration EXPAND = Duration.millis(260);
     private static final Duration PANEL_FADE_IN = Duration.millis(120);
@@ -43,6 +43,7 @@ public final class SortMenu
     private static final Duration COLLAPSE = Duration.millis(200);
 
     private static final Interpolator EASE = Interpolator.SPLINE(0.22, 1, 0.36, 1);
+    private static final Interpolator EASE_IN = Interpolator.SPLINE(0.64, 0, 0.78, 0);
 
     private static final double ROW_RISE = 6;
     private static final double GAP = 4;
@@ -165,8 +166,8 @@ public final class SortMenu
         }
 
         collapse.getKeyFrames().add(new KeyFrame(COLLAPSE,
-            new KeyValue(reveal, 0.0, EASE),
-            new KeyValue(chevron.rotateProperty(), 0.0, EASE),
+            new KeyValue(reveal, 0.0, EASE_IN),
+            new KeyValue(chevron.rotateProperty(), 0.0, EASE_IN),
             new KeyValue(clipHost.opacityProperty(), 0.0, Interpolator.LINEAR)));
 
         collapse.setOnFinished(event ->
@@ -230,14 +231,14 @@ public final class SortMenu
         animation = expand;
         expand.play();
 
-        runLater(this::attachOutsidePress);
+        Platform.runLater(this::attachOutsidePress);
     }
 
     private void buildCard()
     {
         card.getStyleClass().add("sort-menu-card");
 
-        for(SortOrder order : SorOrder.values())
+        for(SortOrder order : SortOrder.values())
         {
             Button row = new Button(order.displayName());
             row.getStyleClass().add("sort-menu-item");
