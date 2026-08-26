@@ -287,7 +287,7 @@
     -fx-border-width: 1px;
 }
 
-.sort-choice
+.sort-toggle
 {
     -fx-font-size: 12px;
     -fx-padding: 3px 6px;
@@ -295,30 +295,47 @@
     -fx-background-insets: 0;
     -fx-border-radius: 3px;
     -fx-border-width: 1px;
+    -fx-cursor: hand;
 }
 
-.sort-choice .list-cell
+.sort-toggle-box
 {
+    -fx-spacing: 6px;
+    -fx-min-width: 104px;
     -fx-padding: 0;
-    -fx-background-insets: 0;
 }
 
-.sort-choice .arrow-button
-{
-    -fx-padding: 0 0 0 6px;
-}
-
-.combo-box-popup .list-view
-{
-    -fx-padding: 0;
-    -fx-background-insets: 0;
-    -fx-border-width: 1px;
-}
-
-.combo-box-popup .list-view .list-cell
+.sort-toggle-label
 {
     -fx-font-size: 12px;
-    -fx-padding: 4px 6px;
+}
+
+.sort-chevron
+{
+    -fx-fill: null;
+    -fx-stroke-width: 1.2px;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.sort-menu-card
+{
+    -fx-padding: 3px 0;
+    -fx-background-radius: 3px;
+    -fx-background-insets: 0;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 24, 0, 0, 10);
+}
+
+.sort-menu-item
+{
+    -fx-font-size: 12px;
+    -fx-padding: 6px 10px;
+    -fx-background-radius: 0;
+    -fx-background-insets: 0;
+    -fx-alignment: CENTER_LEFT;
+    -fx-cursor: hand;
 }
 
 .tag-filter-row

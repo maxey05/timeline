@@ -318,41 +318,61 @@
     -fx-border-color: -text-secondary;
 }
 
-.sort-choice
+.sort-toggle
 {
     -fx-background-color: -surface;
     -fx-border-color: -separator;
 }
 
-.sort-choice .list-cell
+.sort-toggle:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.sort-toggle:selected
+{
+    -fx-background-color: -surface-selected;
+}
+
+.sort-toggle:focused
+{
+    -fx-border-color: -text-primary;
+}
+
+.sort-toggle-label
+{
+    -fx-text-fill: -text-primary;
+}
+
+.sort-chevron
+{
+    -fx-stroke: -text-secondary;
+}
+
+.sort-toggle:hover .sort-chevron,
+.sort-toggle:selected .sort-chevron
+{
+    -fx-stroke: -text-primary;
+}
+
+.sort-menu-card
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.sort-menu-item
 {
     -fx-background-color: transparent;
     -fx-text-fill: -text-primary;
 }
 
-.sort-choice .arrow
-{
-    -fx-background-color: -text-secondary;
-}
-
-.combo-box-popup .list-view
-{
-    -fx-background-color: -surface;
-    -fx-border-color: -separator;
-}
-
-.combo-box-popup .list-view .list-cell
-{
-    -fx-background-color: -surface;
-    -fx-text-fill: -text-primary;
-}
-
-.combo-box-popup .list-view .list-cell:filled:hover
+.sort-menu-item:hover
 {
     -fx-background-color: -surface-hover;
 }
 
-.combo-box-popup .list-view .list-cell:filled:selected
+.sort-menu-item:selected
 {
     -fx-background-color: -surface-selected;
 }
