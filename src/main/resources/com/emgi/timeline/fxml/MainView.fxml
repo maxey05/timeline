@@ -14,6 +14,7 @@
 <?import javafx.scene.shape.SVGPath?>
 <?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.TextFlow?>
 
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
@@ -56,7 +57,7 @@
                 </HBox>
 
                 <HBox styleClass="app-header" alignment="CENTER_LEFT">
-                    <Label fx:id="appTitle" styleClass="app-title" text="Timeline"/>
+                    <TextFlow fx:id="appTitle" styleClass="app-title"/>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Button fx:id="newIdeaButton" styleClass="primary-button" text="+ New Idea"/>
 
