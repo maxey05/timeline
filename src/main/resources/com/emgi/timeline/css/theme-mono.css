@@ -103,6 +103,11 @@
     -fx-text-fill: -text-primary;
 }
 
+.app-title-letter
+{
+    -fx-fill: -text-primary;
+}
+
 .primary-button
 {
     -fx-background-color: -surface-selected;
