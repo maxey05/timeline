@@ -271,4 +271,53 @@ class DescriptionParserTest {
         }
         return found;
     }
+
+    @Test
+    @DisplayName("a line of '- ' plus anything is a bullet")
+    void bulletLineBecomesABulletSegment() {
+        List<DescriptionSegment> segments = DescriptionParser.parse("- one\n- two");
+
+        assertThat(segments).hasSize(2);
+        assertThat(((BulletSegment) segments.get(0)).plainText()).isEqualTo("one");
+        assertThat(((BulletSegment) segments.get(1)).plainText()).isEqualTo("two");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-x", "--- rule", "*x", " - x"})
+    void nearMissesStayText(String line) {
+        assertThat(DescriptionParser.parse(line).get(0)).isInstanceOf(ParagraphSegment.class);
+    }
+
+    @Test
+    @DisplayName("a second space is kept as bullet text, not treated as a near miss")
+    void extraSpaceIsBulletText() {
+        assertThat(((BulletSegment) DescriptionParser.parse("-  x").get(0)).plainText())
+                .isEqualTo(" x");
+    }
+
+    @Test
+    void emptyBulletIsABulletWithNoText() {
+        assertThat(((BulletSegment) DescriptionParser.parse("- ").get(0)).plainText()).isEmpty();
+    }
+
+    @Test
+    void aBulletBreaksThePendingParagraph() {
+        List<DescriptionSegment> segments = DescriptionParser.parse("intro\n- one\ntail");
+
+        assertThat(segments).hasSize(3);
+        assertThat(segments.get(0)).isInstanceOf(ParagraphSegment.class);
+        assertThat(segments.get(1)).isInstanceOf(BulletSegment.class);
+        assertThat(segments.get(2)).isInstanceOf(ParagraphSegment.class);
+    }
+
+    @Test
+    void linksInsideABulletAreStillSplitOut() {
+        BulletSegment bullet =
+                (BulletSegment) DescriptionParser.parse("- see https://x.dev/a").get(0);
+
+        assertThat(bullet.runs()).hasSize(2);
+        assertThat(bullet.runs().get(0)).isEqualTo(TextRun.plain("see "));
+        assertThat(bullet.runs().get(1).isLink()).isTrue();
+        assertThat(bullet.runs().get(1).target()).isEqualTo(URI.create("https://x.dev/a"));
+    }
 }
