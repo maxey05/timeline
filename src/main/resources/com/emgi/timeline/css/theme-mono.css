@@ -203,6 +203,52 @@
     -fx-text-fill: -text-secondary;
 }
 
+.row-action-tray
+{
+    -fx-background-color: -surface;
+}
+
+.row-action-item
+{
+    -fx-background-color: -surface;
+    -fx-text-fill: -text-secondary;
+    -fx-border-color: transparent transparent transparent -separator;
+}
+
+.row-action-item:hover
+{
+    -fx-background-color: -surface-hover;
+    -fx-text-fill: -text-primary;
+}
+
+.row-action-item:focused
+{
+    -fx-background-color: -surface-selected;
+    -fx-text-fill: -text-primary;
+}
+
+.row-action-glyph
+{
+    -fx-stroke: -text-secondary;
+}
+
+.row-action-item:hover .row-action-glyph,
+.row-action-item:focused .row-action-glyph
+{
+    -fx-stroke: -text-primary;
+}
+
+.row-action-delete:hover
+{
+    -fx-background-color: #c42b1c;
+    -fx-text-fill: #ffffff;
+}
+
+.row-action-delete:hover .row-action-glyph
+{
+    -fx-stroke: #ffffff;
+}
+
 .empty-state-title
 {
     -fx-text-fill: -text-primary;
@@ -608,7 +654,7 @@
     -fx-underline: true;
 }
 
-.idea-list:focused .list-cell:filled:selected
+.idea-list:focus-within .list-cell:filled:selected
 {
     -fx-background-color: -text-primary, -surface-selected;
     -fx-background-insets: 0, 0 0 0 3px;
@@ -672,4 +718,9 @@
     -fx-background-insets: 0, 1;
     -fx-background-radius: 3px, 2px;
     -fx-text-fill: -text-primary;
+}
+
+.bullet-marker
+{
+    -fx-text-fill: -text-secondary;
 }
