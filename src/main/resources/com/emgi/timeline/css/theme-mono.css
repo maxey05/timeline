@@ -729,3 +729,31 @@
 {
     -fx-text-fill: -text-secondary;
 }
+
+.confirm-scrim
+{
+    -fx-background-color: rgba(0, 0, 0, 0.30);
+}
+
+.confirm-panel
+{
+    -fx-background-color: -canvas;
+    -fx-border-color: -separator;
+}
+
+.confirm-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.confirm-message
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.confirm-destructive:hover
+{
+    -fx-background-color: #c42b1c;
+    -fx-border-color: #c42b1c;
+    -fx-text-fill: #ffffff;
+}
