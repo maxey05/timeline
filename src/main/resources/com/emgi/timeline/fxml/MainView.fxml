@@ -77,7 +77,16 @@
                                    styleClass="search-field"
                                    promptText="Search titles…"
                                    HBox.hgrow="ALWAYS"/>
-                        <ComboBox fx:id="sortChoice" styleClass="sort-choice"/>
+                        <ToggleButton fx:id="sortToggle" styleClass="sort-toggle">
+                            <graphic>
+                                <HBox fx:id="sortToggleBox" styleClass="sort-toggle-box" alignment="CENTER_LEFT">
+                                    <Label fx:id="sortLabel" styleClass="sort-toggle-label"/>
+                                    <Region HBox.hgrow="ALWAYS"/>
+                                    <SVGPath fx:id="sortChevron" styleClass="sort-chevron"
+                                             content="M 2 4 L 5 7 L 8 4"/>
+                                </HBox>
+                            </graphic>
+                        </ToggleButton>
                     </HBox>
 
                     <HBox fx:id="tagFilterRow" styleClass="tag-filter-row" alignment="TOP_LEFT">
