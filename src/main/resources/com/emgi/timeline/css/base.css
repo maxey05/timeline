@@ -371,7 +371,6 @@
     -fx-background-insets: 0;
     -fx-border-radius: 3px;
     -fx-border-width: 1px;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 24, 0, 0, 10);
 }
 
 .sort-menu-item
@@ -651,4 +650,123 @@
 {
     -fx-spacing: 8px;
     -fx-padding: 6px 0 0 0;
+}
+
+.settings-overlay
+{
+    -fx-padding: 0;
+}
+
+.settings-panel
+{
+    -fx-padding: 0;
+    -fx-background-radius: 3px;
+    -fx-border-radius: 3px;
+    -fx-border-width: 1px;
+}
+
+.settings-header
+{
+    -fx-padding: 18px 20px 14px 20px;
+    -fx-spacing: 10px;
+}
+
+.settings-title
+{
+    -fx-font-size: 19px;
+}
+
+.settings-close-button
+{
+    -fx-padding: 2px 8px;
+    -fx-font-size: 13px;
+    -fx-background-radius: 3px;
+    -fx-cursor: hand;
+}
+
+.settings-body
+{
+    -fx-padding: 16px 20px;
+    -fx-spacing: 8px;
+    -fx-border-width: 1px 0 0 0;
+}
+
+.setting-row
+{
+    -fx-padding: 12px 14px;
+    -fx-spacing: 12px;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+}
+
+.setting-icon
+{
+    -fx-min-width: 32px;
+    -fx-max-width: 32px;
+    -fx-min-height: 32px;
+    -fx-max-height: 32px;
+    -fx-padding: 0;
+    -fx-background-radius: 16px;
+    -fx-border-radius: 16px;
+    -fx-border-width: 1px;
+}
+
+.setting-icon-glyph
+{
+    -fx-stroke-width: 2px;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.setting-text
+{
+    -fx-spacing: 2px;
+}
+
+.setting-title
+{
+    -fx-font-size: 13px;
+}
+
+.setting-description
+{
+    -fx-font-size: 12px;
+}
+
+.setting-name-input
+{
+    -fx-min-width: 160px;
+    -fx-pref-width: 160px;
+    -fx-max-width: 160px;
+    -fx-font-size: 13px;
+    -fx-padding: 5px 8px;
+    -fx-cursor: text;
+}
+
+.settings-footer
+{
+    -fx-padding: 14px 20px;
+    -fx-spacing: 8px;
+    -fx-border-width: 1px 0 0 0;
+}
+
+.switch
+{
+    -fx-cursor: hand;
+}
+
+.switch-track,
+.switch-track-on
+{
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+}
+
+.switch-knob,
+.switch-knob-on
+{
+    -fx-background-radius: 7px;
 }
