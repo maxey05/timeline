@@ -11,6 +11,8 @@ import com.emgi.timeline.repository.sqlite.SqliteIdeaRepository;
 import com.emgi.timeline.service.IdeaService;
 import com.emgi.timeline.service.ImageStore;
 import com.emgi.timeline.service.UuidIdGenerator;
+import com.emgi.timeline.settings.AppSettingsStore;
+import com.emgi.timeline.settings.PreferencesAppSettingsStore;
 import com.emgi.timeline.settings.PreferencesDisplayNameStore;
 import com.emgi.timeline.settings.PreferencesWindowStateStore;
 import com.emgi.timeline.view.IdeaEditorOverlay;
@@ -68,9 +70,18 @@ public class App extends Application
         DescriptionRenderer descriptionRenderer =
             new DescriptionRenderer(uri -> getHostServices().showDocument(uri.toString()));
 
+        AppSettingsStore appSettings = PreferencesAppSettingsStore.atUserNode();
+
+        /*
+         * Read the saved theme before any Scene is styled. Doing it here rather than in
+         * MainView means the first frame is already the right colour instead of flashing
+         * dark and then repainting.
+         */
+        Theme.setDarkTheme(appSettings.load().darkTheme());
+
         MainView mainView = new MainView(
             listController, new IdeaDateFormatter(clock), editors, descriptionRenderer,
-            PreferencesDisplayNameStore.atUserNode());
+            PreferencesDisplayNameStore.atUserNode(), appSettings);
 
         FXMLLoader loader = new FXMLLoader(resource(FXML_MAIN));
         loader.setControllerFactory(type ->
@@ -90,6 +101,12 @@ public class App extends Application
 
         stage.initStyle(StageStyle.UNDECORATED);
         stage.setTitle("Timeline");
+        stage.getIcons().add(new javafx.scene.image.Image(
+            Objects.requireNonNull(
+                App.class.getResourceAsStream("/com/emgi/timeline/assets/icon.png"),
+                "Missing icon resource"
+            )
+        ));
         stage.setMinWidth(820);
         stage.setMinHeight(560);
         stage.setScene(scene);
