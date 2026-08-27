@@ -1,5 +1,7 @@
 # Timeline
 
+<img width="800" height="400" alt="Image" src="https://github.com/user-attachments/assets/b8bef9ef-e41d-46ea-95cb-31ec542d7c00" />
+
 A desktop app that serves as your second brain- organizing and managing your ideas.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-lightgrey)
