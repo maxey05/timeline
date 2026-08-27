@@ -5,10 +5,13 @@ import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.domain.query.SortOrder;
 import com.emgi.timeline.settings.DisplayNameStore;
+import com.emgi.timeline.settings.SettingsController;
 import com.emgi.timeline.view.cell.IdeaListCell;
 import com.emgi.timeline.view.cell.RowActions;
 import com.emgi.timeline.view.content.DescriptionRenderer;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
+import com.emgi.timeline.settings.AppSettings;
+import com.emgi.timeline.settings.AppSettingsStore;
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -17,7 +20,6 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.ListChangeListener;
 import javafx.event.EventTarget;
-import javafx.geometry.Side;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -26,11 +28,9 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -102,6 +102,10 @@ public class MainView
     private GreetingReveal greetingReveal;
 
     private final RowActions rowActions = new RowActions();
+
+    private final SettingsController settingsController;
+    private SettingsPanel settings;
+    private final GaussianBlur settingsBlur = new GaussianBlur(BACKDROP_BLUR);
 
     @FXML
     private TextFlow appTitle;
@@ -238,10 +242,42 @@ public class MainView
     @FXML
     private Button confirmCancelButton;
 
+    @FXML 
+    private StackPane settingsOverlay;
+
+    @FXML 
+    private Region settingsScrim;
+
+    @FXML 
+    private VBox settingsPanel;
+    
+    @FXML 
+    private HBox settingNameRow;
+
+    @FXML 
+    private HBox settingThemeRow;
+
+    @FXML 
+    private HBox settingAnimationsRow;
+
+    @FXML 
+    private TextField settingNameField;
+
+    @FXML 
+    private ToggleSwitch settingThemeSwitch;
+
+    @FXML 
+    private ToggleSwitch settingAnimationsSwitch;
+
+    @FXML 
+    private Button settingsSaveButton;
+
+    @FXML 
+    private Button settingsCloseButton;
+
     private final ToggleButton allTagsChip = new ToggleButton("All");
 
     private final StringProperty displayName = new SimpleStringProperty("");
-    private final ContextMenu settingsMenu = new ContextMenu();
 
     private IdeaEditorOverlay.Session editorSession;
 
@@ -267,7 +303,7 @@ public class MainView
                     IdeaDateFormatter dateFormatter,
                     IdeaEditorOverlay editors,
                     DescriptionRenderer descriptionRenderer,
-                    DisplayNameStore displayNames)
+                    DisplayNameStore displayNames, AppSettingsStore appSettings)
     {
         this.controller = Objects.requireNonNull(controller, "controller");
         this.dateFormatter = Objects.requireNonNull(dateFormatter, "dateFormatter");
@@ -275,6 +311,7 @@ public class MainView
         this.descriptionRenderer =
             Objects.requireNonNull(descriptionRenderer, "descriptionRenderer");
         this.displayNames = Objects.requireNonNull(displayNames, "displayNames");
+        this.settingsController = new SettingsController(Objects.requireNonNull(appSettings, "appSettings"));
     }
 
     @FXML
@@ -296,7 +333,12 @@ public class MainView
             || nameField == null || nameOkButton == null
             || confirmOverlay == null || confirmScrim == null || confirmPanel == null
             || confirmTitle == null || confirmMessage == null
-            || confirmAcceptButton == null || confirmCancelButton == null)
+            || confirmAcceptButton == null || confirmCancelButton == null
+            || settingsOverlay == null || settingsScrim == null || settingsPanel == null
+            || settingNameRow == null || settingThemeRow == null || settingAnimationsRow == null
+            || settingNameField == null || settingThemeSwitch == null
+            || settingAnimationsSwitch == null
+            || settingsSaveButton == null || settingsCloseButton == null)
         {
             throw new IllegalStateException(
                 "FXML injection failed, check fx:id and the fx:controller class name."
@@ -329,13 +371,13 @@ public class MainView
 
         buildTitleBar();
         buildHeader();
-        buildSettingsMenu();
         buildFilterControls();
         buildDetailOverlay();
         buildEditorOverlay();
         buildNamePrompt();
         buildConfirmOverlay();
         buildBackdrop();
+        buildSettingsPanel();
         installKeyboard();
         installRowActions();
 
@@ -367,9 +409,9 @@ public class MainView
                     (height, previousHeight, currentHeight) -> rowActions.close());
 
                 windowChrome.install(current);
+                windowChrome.setCloseInterceptor(this::interceptWindowClose);
 
                 Platform.runLater(greetingReveal::play);
-                Platform.runLater(this::openNamePromptIfUnnamed);
                 Platform.runLater(this::openNamePromptIfUnnamed);
             }
         });
@@ -430,6 +472,12 @@ public class MainView
                 event.consume();
             }
 
+            return;
+        }
+
+        if(settings != null && settings.isOpen())
+        {
+            settings.onKey(event);
             return;
         }
 
@@ -681,6 +729,12 @@ public class MainView
     private void buildHeader()
     {
         greetingReveal = new GreetingReveal(appTitle);
+
+        /*
+         * setEnabled has to precede arm(): arm() hides the letters ready for the reveal,
+         * and with animations switched off there is no reveal coming to bring them back.
+         */
+        greetingReveal.setEnabled(settingsController.saved().animationsEnabled());
         greetingReveal.arm();
 
         displayNames.load().ifPresent(displayName::set);
@@ -710,31 +764,87 @@ public class MainView
         return displayName;
     }
 
-    private void buildSettingsMenu()
+    private void buildSettingsPanel()
     {
         settingsButton.setAccessibleText("Settings");
         settingsButton.setTooltip(new Tooltip("Settings"));
+        settingsButton.setOnAction(event -> openSettings());
 
-        MenuItem placeholder = new MenuItem("No settings yet");
-        placeholder.setDisable(true);
-        settingsMenu.getItems().setAll(placeholder);
+        settings = new SettingsPanel(
+            settingsController,
+            this::askConfirm,
+            settingsOverlay,
+            settingsScrim,
+            settingsPanel,
+            settingNameRow,
+            settingThemeRow,
+            settingAnimationsRow,
+            settingNameField,
+            settingThemeSwitch,
+            settingAnimationsSwitch,
+            settingsSaveButton,
+            settingsCloseButton);
 
-        settingsMenu.setOnShowing(event -> settingsButton.getStyleClass().add("showing"));
-        settingsMenu.setOnHidden(event -> settingsButton.getStyleClass().remove("showing"));
-
-        settingsButton.setOnAction(event -> toggleSettingsMenu());
+        settings.install();
+        settings.setOnVisibilityChanged(this::syncSettingsButton);
+        settings.setOnSaved(this::applySettings);
     }
 
-    private void toggleSettingsMenu()
+    private void openSettings()
     {
-        if(settingsMenu.isShowing())
+        sortMenu.close();
+        rowActions.close();
+
+        settings.open();
+    }
+
+    /**
+     * Keeps the settings button lit for exactly as long as the panel is open, and keeps the
+     * backdrop blur in step. Runs on every open and every close, however the close happened.
+     */
+    private void syncSettingsButton()
+    {
+        boolean open = settings != null && settings.isOpen();
+
+        if(open)
         {
-            settingsMenu.hide();
-            return;
+            if(!settingsButton.getStyleClass().contains("showing"))
+            {
+                settingsButton.getStyleClass().add("showing");
+            }
+        }
+        else
+        {
+            settingsButton.getStyleClass().remove("showing");
         }
 
-        settingsMenu.show(settingsButton, Side.BOTTOM, 0, 4);
-        settingsMenu.setX(settingsMenu.getX() + settingsButton.getWidth() - settingsMenu.getWidth());
+        syncBackdrop();
+    }
+
+    /**
+     * Routes a window-close request through the settings panel while it is open, so the
+     * title-bar close button raises the same unsaved-changes prompt that Esc does.
+     * Returns true when the request has been handled and the window must stay open.
+     */
+    private boolean interceptWindowClose()
+    {
+        if(settings == null || !settings.isOpen())
+        {
+            return false;
+        }
+
+        settings.requestClose();
+
+        return true;
+    }
+
+    private void applySettings(AppSettings applied)
+    {
+        displayName.set(applied.displayName());
+
+        greetingReveal.setEnabled(applied.animationsEnabled());
+
+        Theme.setDarkTheme(applied.darkTheme());
     }
 
     private void buildFilterControls()
@@ -1052,11 +1162,13 @@ public class MainView
     private void buildBackdrop()
     {
         contentBlur.radiusProperty().bind(
+        Bindings.max(
+            Bindings.max(detailOverlay.opacityProperty(), editorOverlay.opacityProperty()),
             Bindings.max(
-                Bindings.max(detailOverlay.opacityProperty(), editorOverlay.opacityProperty()),
                 Bindings.max(namePromptOverlay.opacityProperty(),
-                    confirmOverlay.opacityProperty()))
-                        .multiply(BACKDROP_BLUR));
+                    confirmOverlay.opacityProperty()),
+                settingsOverlay.opacityProperty()))
+                    .multiply(BACKDROP_BLUR));
 
         detailBlur.radiusProperty().bind(
             Bindings.max(editorOverlay.opacityProperty(), confirmOverlay.opacityProperty())
@@ -1064,6 +1176,10 @@ public class MainView
 
         editorBlur.radiusProperty().bind(
             confirmOverlay.opacityProperty().multiply(BACKDROP_BLUR));
+
+        settingsBlur.radiusProperty().bind(
+            confirmOverlay.opacityProperty().multiply(BACKDROP_BLUR)
+        );
     }
 
     private static void fadeIn(Node overlay, FadeTransition fade)
@@ -1095,12 +1211,18 @@ public class MainView
 
     private void syncBackdrop()
     {
+        boolean settingsOpen = settings != null && settings.isOpen();
+
         contentRoot.setEffect(
-            editorOpen || detailOpen || namePromptOpen || confirmOpen ? contentBlur : null);
+            editorOpen || detailOpen || namePromptOpen || confirmOpen || settingsOpen
+                ? contentBlur
+                : null);
 
         detailOverlay.setEffect(editorOpen || confirmOpen ? detailBlur : null);
 
         editorOverlay.setEffect(confirmOpen ? editorBlur : null);
+
+        settingsOverlay.setEffect(confirmOpen ? settingsBlur : null);
     }
 
     private void openEditor(IdeaEditorOverlay.Session session)
