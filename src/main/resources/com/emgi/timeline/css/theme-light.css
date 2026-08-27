@@ -1,0 +1,55 @@
+/*
+ * theme-light.css - the light token set.
+ *
+ * This file is a token override layer, not a full theme. It is loaded AFTER
+ * theme-mono.css and redefines nothing but the looked-up colours declared in
+ * that file's .root block. Every rule in theme-mono.css is written against
+ * those tokens, so redefining them here repaints the whole app.
+ *
+ * The consequence: any NEW rule added to theme-mono.css must use tokens rather
+ * than literal colours, or it will not follow the theme. The only literals that
+ * are deliberately left alone are the destructive reds (close button, delete
+ * confirm), which are meant to read the same in both themes.
+ *
+ * The scale is inverted in role, not in value: -canvas is the page and is the
+ * lightest tone, and the -surface ramp darkens as elements raise off it. That
+ * mirrors the dark theme, where -canvas is darkest and surfaces lighten.
+ */
+
+.root
+{
+    -text-primary: #1a1a1a;
+    -text-secondary: #6b6b6b;
+    -canvas: #fbfbfb;
+    -surface: #f0f0f0;
+    -surface-hover: #e7e7e7;
+    -surface-selected: #d9d9d9;
+    -surface-active: #c9c9c9;
+    -separator: #dedede;
+
+    -text-error: #1a1a1a;
+
+    -scrim: rgba(0, 0, 0, 0.28);
+    -scrim-soft: rgba(0, 0, 0, 0.18);
+    -menu-shadow: rgba(0, 0, 0, 0.18);
+
+    /*
+     * The four Modena roots. JavaFX derives the built-in control skins from
+     * these, so they have to move with the palette or stock controls
+     * (scrollbars, text selection, the ScrollPane corner) stay dark.
+     */
+    -fx-base: #f0f0f0;
+    -fx-background: #fbfbfb;
+    -fx-control-inner-background: #f0f0f0;
+    -fx-control-inner-background-alt: #f0f0f0;
+
+    -fx-accent: #c9c9c9;
+    -fx-default-button: #d9d9d9;
+    -fx-focus-color: #1a1a1a;
+    -fx-faint-focus-color: rgba(26, 26, 26, 0.15);
+    -fx-mark-color: #1a1a1a;
+    -fx-mark-highlight-color: transparent;
+
+    -fx-background-color: -canvas;
+    -fx-text-fill: -text-primary;
+}
