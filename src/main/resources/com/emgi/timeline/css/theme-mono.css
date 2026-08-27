@@ -11,6 +11,10 @@
 
     -text-error: #ededed;
 
+    -scrim: rgba(0, 0, 0, 0.45);
+    -scrim-soft: rgba(0, 0, 0, 0.30);
+    -menu-shadow: rgba(0, 0, 0, 0.45);
+
     -fx-base: #232323;
     -fx-background: #151515;
     -fx-control-inner-background: #232323;
@@ -408,6 +412,7 @@
 
 .sort-menu-card
 {
+    -fx-effect: dropshadow(gaussian, -menu-shadow, 24, 0, 0, 10);
     -fx-background-color: -surface;
     -fx-border-color: -separator;
 }
@@ -623,8 +628,6 @@
     -fx-background-insets: 0, 1;
 }
 
-
-
 .filter-chip:focused,
 .sort-choice:focused
 {
@@ -674,7 +677,7 @@
 
 .detail-scrim
 {
-    -fx-background-color: rgba(0, 0, 0, 0.45);
+    -fx-background-color: -scrim;
 }
 
 .name-prompt-panel,
@@ -732,7 +735,7 @@
 
 .confirm-scrim
 {
-    -fx-background-color: rgba(0, 0, 0, 0.30);
+    -fx-background-color: -scrim-soft;
 }
 
 .confirm-panel
@@ -756,4 +759,108 @@
     -fx-background-color: #c42b1c;
     -fx-border-color: #c42b1c;
     -fx-text-fill: #ffffff;
+}
+
+.settings-panel
+{
+    -fx-background-color: -canvas;
+    -fx-border-color: -separator;
+}
+
+.settings-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.settings-close-button
+{
+    -fx-background-color: transparent;
+    -fx-text-fill: -text-secondary;
+}
+
+.settings-close-button:hover
+{
+    -fx-background-color: -surface-hover;
+    -fx-text-fill: -text-primary;
+}
+
+.settings-close-button:focused
+{
+    -fx-background-color: -text-primary, -canvas;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px, 2px;
+    -fx-text-fill: -text-primary;
+}
+
+.settings-body,
+.settings-footer
+{
+    -fx-border-color: -separator transparent transparent transparent;
+}
+
+.setting-row
+{
+    -fx-background-color: -surface;
+    -fx-border-color: -separator;
+}
+
+.setting-row:hover
+{
+    -fx-background-color: -surface-hover;
+}
+
+.setting-icon
+{
+    -fx-background-color: -surface-hover;
+    -fx-border-color: -separator;
+}
+
+.setting-icon-glyph
+{
+    -fx-fill: null;
+    -fx-stroke: -text-secondary;
+}
+
+.setting-row:hover .setting-icon-glyph
+{
+    -fx-stroke: -text-primary;
+}
+
+.setting-title
+{
+    -fx-text-fill: -text-primary;
+}
+
+.setting-description
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.switch:focused
+{
+    -fx-background-color: -text-primary, -surface;
+    -fx-background-insets: -3, -2;
+    -fx-background-radius: 13px, 12px;
+}
+
+.switch-track
+{
+    -fx-background-color: -surface-hover;
+    -fx-border-color: -separator;
+}
+
+.switch-track-on
+{
+    -fx-background-color: -text-primary;
+    -fx-border-color: -text-primary;
+}
+
+.switch-knob
+{
+    -fx-background-color: -text-secondary;
+}
+
+.switch-knob-on
+{
+    -fx-background-color: -canvas;
 }
