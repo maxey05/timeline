@@ -18,6 +18,7 @@ import javafx.stage.Window;
 import javafx.stage.WindowEvent;
 
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 public final class WindowChrome
 {
@@ -47,6 +48,8 @@ public final class WindowChrome
 
     private Stage stage;
 
+    private BooleanSupplier closeInterceptor = () -> false;
+
     private double dragOffsetX;
     private double dragOffsetY;
     private boolean dragging;
@@ -71,6 +74,17 @@ public final class WindowChrome
         this.maximizeButton = Objects.requireNonNull(maximizeButton, "maximizeButton");
         this.maximizeGlyph = Objects.requireNonNull(maximizeGlyph, "maximizeGlyph");
         this.closeButton = Objects.requireNonNull(closeButton, "closeButton");
+    }
+
+    /**
+     * Registers a veto for window-close requests. The supplier runs on every close
+     * request — title-bar close button, Alt+F4, or anything else that fires
+     * WINDOW_CLOSE_REQUEST. Returning true means the supplier has taken
+     * responsibility for the request and the window must stay open.
+     */
+    public void setCloseInterceptor(BooleanSupplier interceptor)
+    {
+        this.closeInterceptor = interceptor == null ? () -> false : interceptor;
     }
 
     public void install(Scene scene)
@@ -102,6 +116,14 @@ public final class WindowChrome
     private void attach(Stage window, Scene scene)
     {
         this.stage = window;
+
+        stage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, event ->
+        {
+            if(closeInterceptor.getAsBoolean())
+            {
+                event.consume();
+            }
+        });
 
         minimizeButton.setOnAction(event -> stage.setIconified(true));
         maximizeButton.setOnAction(event -> toggleMaximize());
