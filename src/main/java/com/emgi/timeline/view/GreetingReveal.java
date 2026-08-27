@@ -28,6 +28,7 @@ public final class GreetingReveal
 
     private int nameStart;
     private boolean armed;
+    private boolean enabled = true;
     private ParallelTransition running;
 
     public GreetingReveal(TextFlow flow)
@@ -65,8 +66,41 @@ public final class GreetingReveal
         }
     }
 
+    /**
+     * Turns the reveal on or off. When off, {@link #arm()} and {@link #play()} leave the
+     * greeting fully visible instead of hiding and animating it. Switching it off while a
+     * reveal is running snaps that reveal to its finished state.
+     */
+    public void setEnabled(boolean value)
+    {
+        if(enabled == value)
+        {
+            return;
+        }
+
+        enabled = value;
+
+        if(!enabled)
+        {
+            armed = false;
+            stop();
+        }
+    }
+
+    public boolean isEnabled()
+    {
+        return enabled;
+    }
+
     public void arm()
     {
+        if(!enabled)
+        {
+            armed = false;
+            show();
+            return;
+        }
+
         armed = true;
         hide();
     }
@@ -77,6 +111,12 @@ public final class GreetingReveal
 
         if(letters.isEmpty())
         {
+            return;
+        }
+
+        if(!enabled)
+        {
+            stop();
             return;
         }
 
