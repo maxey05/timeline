@@ -15,6 +15,7 @@
 <?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.text.TextFlow?>
+<?import com.emgi.timeline.view.ToggleSwitch?>
 
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
@@ -173,7 +174,74 @@
         </VBox>
 
     </StackPane>
-        <StackPane fx:id="confirmOverlay" styleClass="confirm-overlay" visible="false">
+
+    <StackPane fx:id="settingsOverlay" styleClass="settings-overlay" visible="false">
+
+        <Region fx:id="settingsScrim" styleClass="detail-scrim"/>
+
+        <VBox fx:id="settingsPanel" styleClass="settings-panel">
+
+            <HBox styleClass="settings-header" alignment="CENTER_LEFT">
+                <Label styleClass="settings-title" text="Settings" HBox.hgrow="ALWAYS"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="settingsCloseButton" styleClass="settings-close-button" text="&#215;"/>
+            </HBox>
+
+            <VBox styleClass="settings-body">
+
+                <HBox fx:id="settingNameRow" styleClass="setting-row" alignment="CENTER_LEFT">
+                    <StackPane styleClass="setting-icon">
+                        <SVGPath styleClass="setting-icon-glyph"
+                                scaleX="0.6667"
+                                scaleY="0.6667"
+                                content="M 20 21 v -2 a 4 4 0 0 0 -4 -4 H 8 a 4 4 0 0 0 -4 4 v 2 M 16 7 a 4 4 0 1 1 -8 0 4 4 0 0 1 8 0 z"/>
+                    </StackPane>
+                    <VBox styleClass="setting-text" HBox.hgrow="ALWAYS">
+                        <Label styleClass="setting-title" text="Your name"/>
+                        <Label styleClass="setting-description" text="Shown in the window greeting."/>
+                    </VBox>
+                    <TextField fx:id="settingNameField" styleClass="text-input, setting-name-input"/>
+                </HBox>
+
+                <HBox fx:id="settingThemeRow" styleClass="setting-row" alignment="CENTER_LEFT">
+                    <StackPane styleClass="setting-icon">
+                        <SVGPath styleClass="setting-icon-glyph"
+                                scaleX="0.6667"
+                                scaleY="0.6667"
+                                content="M 21 12.79 A 9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79 z"/>
+                    </StackPane>
+                    <VBox styleClass="setting-text" HBox.hgrow="ALWAYS">
+                        <Label styleClass="setting-title" text="Dark theme"/>
+                        <Label styleClass="setting-description" text="Turn off for the light theme."/>
+                    </VBox>
+                    <ToggleSwitch fx:id="settingThemeSwitch" styleClass="switch"/>
+                </HBox>
+
+                <HBox fx:id="settingAnimationsRow" styleClass="setting-row" alignment="CENTER_LEFT">
+                    <StackPane styleClass="setting-icon">
+                        <SVGPath styleClass="setting-icon-glyph"
+                                scaleX="0.6667"
+                                scaleY="0.6667"
+                                content="M 13 2 L 3 14 h 9 l -1 8 10 -12 h -9 l 1 -8 z"/>
+                    </StackPane>
+                    <VBox styleClass="setting-text" HBox.hgrow="ALWAYS">
+                        <Label styleClass="setting-title" text="Animations"/>
+                        <Label styleClass="setting-description" text="Overlay fades and the greeting reveal."/>
+                    </VBox>
+                    <ToggleSwitch fx:id="settingAnimationsSwitch" styleClass="switch"/>
+                </HBox>
+
+            </VBox>
+
+            <HBox styleClass="settings-footer" alignment="CENTER_RIGHT">
+                <Button fx:id="settingsSaveButton" styleClass="primary-button" text="Save Changes"/>
+            </HBox>
+
+        </VBox>
+
+    </StackPane>
+
+    <StackPane fx:id="confirmOverlay" styleClass="confirm-overlay" visible="false">
 
         <Region fx:id="confirmScrim" styleClass="confirm-scrim"/>
 
