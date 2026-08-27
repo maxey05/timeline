@@ -5,6 +5,7 @@ import com.emgi.timeline.domain.content.DescriptionParser;
 import com.emgi.timeline.domain.content.DescriptionSegment;
 import com.emgi.timeline.domain.content.ImageSegment;
 import com.emgi.timeline.domain.content.ParagraphSegment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,21 +50,18 @@ public record Description(String text) {
             throw new IllegalArgumentException("maxChars must be at least 1, was " + maxChars);
         }
 
-        String firstLine = "";
+        List<String> pieces = new ArrayList<>();
         for (DescriptionSegment segment : DescriptionParser.parse(text)) {
             String piece = switch (segment) {
-                case ParagraphSegment paragraph -> firstLineOf(paragraph.plainText());
+                case ParagraphSegment paragraph -> paragraph.plainText();
                 case BulletSegment bullet -> bullet.plainText();
                 case ImageSegment image -> "";
             };
 
-            if (!piece.isEmpty()) {
-                firstLine = piece;
-                break;
-            }
+            pieces.add(piece);
         }
 
-        String flattened = firstLine.replaceAll("\\s+", " ").strip();
+        String flattened = String.join("\n", pieces).replaceAll("\\s+", " ").strip();
         if (flattened.length() <= maxChars) {
             return flattened;
         }
@@ -73,11 +71,5 @@ public record Description(String text) {
             cut--;
         }
         return flattened.substring(0, cut).stripTrailing() + ELLIPSIS;
-    }
-
-    private static String firstLineOf(String text)
-    {
-        int newline = text.indexOf('\n');
-        return newline == -1 ? text : text.substring(0, newline);
     }
 }
