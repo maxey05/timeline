@@ -23,6 +23,18 @@ public enum SortOrder {
         if (this == NEWEST_FIRST) {
             byCreatedAt = byCreatedAt.reversed();
         }
-        return byCreatedAt.thenComparing(idea -> idea.id().value().toString());
+        return Comparator.comparingInt(SortOrder::groupRank)
+                .thenComparing(byCreatedAt)
+                .thenComparing(idea -> idea.id().value().toString());
+    }
+
+    private static int groupRank(Idea idea)
+    {
+        return switch (idea.status())
+        {
+            case IN_PROGRESS -> 0;
+            case INCOMPLETE -> 1;
+            case COMPLETED -> 2;
+        };
     }
 }
