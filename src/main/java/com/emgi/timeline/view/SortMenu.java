@@ -1,5 +1,6 @@
 package com.emgi.timeline.view;
 
+import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.query.SortOrder;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
@@ -11,6 +12,7 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.css.PseudoClass;
+import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point2D;
@@ -23,6 +25,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.SVGPath;
@@ -38,7 +41,7 @@ public final class SortMenu
     private static final Duration PANEL_FADE_IN = Duration.millis(120);
     private static final Duration ROW_FADE_IN = Duration.millis(180);
     private static final Duration ROW_FIRST_DELAY = Duration.millis(80);
-    private static final Duration ROW_STAGGER = Duration.millis(40);
+    private static final Duration ROW_STAGGER = Duration.millis(22);
     private static final Duration ROW_FADE_OUT = Duration.millis(110);
     private static final Duration COLLAPSE = Duration.millis(200);
 
@@ -50,6 +53,8 @@ public final class SortMenu
     private static final double SHADOW_PAD = 28;
     private static final double EDGE_MARGIN = 8;
 
+    private static final String ALL_STATUSES = "All ideas";
+
     private static final PseudoClass SELECTED = PseudoClass.getPseudoClass("selected");
 
     private final ToggleButton trigger;
@@ -60,12 +65,18 @@ public final class SortMenu
     private final Pane clipHost = new Pane();
     private final VBox card = new VBox();
     private final Rectangle clipShape = new Rectangle();
-    private final List<Button> rows = new ArrayList<>();
+
+    private final List<Node> animated = new ArrayList<>();
+    private final List<Button> orderRows = new ArrayList<>();
+    private final List<Button> statusRows = new ArrayList<>();
 
     private final DoubleProperty reveal = new SimpleDoubleProperty(0);
 
     private final ObjectProperty<SortOrder> value =
-        new SimpleObjectProperty<>(this, "value", SortOrder.NEWEST_FIRST);
+        new SimpleObjectProperty<>(this, "value", SortOrder.BY_PROGRESS);
+
+    private final ObjectProperty<IdeaStatus> status =
+        new SimpleObjectProperty<>(this, "status", null);
 
     private final EventHandler<MouseEvent> outsidePress = this::onOutsidePress;
 
@@ -84,6 +95,11 @@ public final class SortMenu
     public ObjectProperty<SortOrder> valueProperty()
     {
         return value;
+    }
+
+    public ObjectProperty<IdeaStatus> statusProperty()
+    {
+        return status;
     }
 
     public boolean isOpen()
@@ -119,6 +135,7 @@ public final class SortMenu
         trigger.setOnKeyPressed(this::onTriggerKey);
 
         value.addListener((observable, previous, current) -> syncSelection());
+        status.addListener((observable, previous, current) -> syncSelection());
 
         trigger.sceneProperty().addListener((observable, previous, current) -> watchScene(current));
         watchScene(trigger.getScene());
@@ -156,7 +173,7 @@ public final class SortMenu
             new KeyValue(reveal, reveal.get()),
             new KeyValue(chevron.rotateProperty(), chevron.getRotate())));
 
-        for(Button row : rows)
+        for(Node row : animated)
         {
             collapse.getKeyFrames().add(new KeyFrame(Duration.ZERO,
                 new KeyValue(row.opacityProperty(), row.getOpacity())));
@@ -209,9 +226,9 @@ public final class SortMenu
             new KeyValue(reveal, full, EASE),
             new KeyValue(chevron.rotateProperty(), 180.0, EASE)));
 
-        for(int index = 0; index < rows.size(); index++)
+        for(int index = 0; index < animated.size(); index++)
         {
-            Button row = rows.get(index);
+            Node row = animated.get(index);
             Duration start = ROW_FIRST_DELAY.add(ROW_STAGGER.multiply(index));
 
             row.setOpacity(0);
@@ -238,37 +255,105 @@ public final class SortMenu
     {
         card.getStyleClass().add("sort-menu-card");
 
+        addSectionLabel("Order");
+
         for(SortOrder order : SortOrder.values())
         {
-            Button row = new Button(order.displayName());
-            row.getStyleClass().add("sort-menu-item");
-            row.setMaxWidth(Double.MAX_VALUE);
-            row.setFocusTraversable(false);
-            row.setUserData(order);
-            row.setOnAction(event -> choose(order));
+            orderRows.add(addRow(order.displayName(), order, event -> chooseOrder(order)));
+        }
 
-            rows.add(row);
-            card.getChildren().add(row);
+        addSeparator();
+        addSectionLabel("Show");
+
+        statusRows.add(addRow(ALL_STATUSES, null, event -> chooseStatus(null)));
+
+        for(IdeaStatus ideaStatus : IdeaStatus.values())
+        {
+            statusRows.add(
+                addRow(ideaStatus.displayName(), ideaStatus, event -> chooseStatus(ideaStatus)));
         }
 
         card.setOnKeyPressed(this::onCardKey);
     }
 
-    private void choose(SortOrder order)
+    private Button addRow(String text, Object key, EventHandler<ActionEvent> action)
+    {
+        Button row = new Button(text);
+        row.getStyleClass().add("sort-menu-item");
+        row.setMaxWidth(Double.MAX_VALUE);
+        row.setFocusTraversable(false);
+        row.setUserData(key);
+        row.setOnAction(action);
+
+        card.getChildren().add(row);
+        animated.add(row);
+
+        return row;
+    }
+
+    private void addSectionLabel(String text)
+    {
+        Label heading = new Label(text);
+        heading.getStyleClass().add("sort-menu-section");
+        heading.setMaxWidth(Double.MAX_VALUE);
+
+        card.getChildren().add(heading);
+        animated.add(heading);
+    }
+
+    private void addSeparator()
+    {
+        Region line = new Region();
+        line.getStyleClass().add("sort-menu-separator");
+        line.setMaxWidth(Double.MAX_VALUE);
+
+        card.getChildren().add(line);
+        animated.add(line);
+    }
+
+    private void chooseOrder(SortOrder order)
     {
         value.set(order);
         close();
         trigger.requestFocus();
     }
 
+    private void chooseStatus(IdeaStatus ideaStatus)
+    {
+        status.set(ideaStatus);
+        close();
+        trigger.requestFocus();
+    }
+
     private void syncSelection()
     {
-        label.setText(value.get() == null ? "" : value.get().displayName());
+        label.setText(triggerText());
 
-        for(Button row : rows)
+        for(Button row : orderRows)
         {
             row.pseudoClassStateChanged(SELECTED, row.getUserData() == value.get());
         }
+
+        for(Button row : statusRows)
+        {
+            row.pseudoClassStateChanged(SELECTED, row.getUserData() == status.get());
+        }
+    }
+
+    private String triggerText()
+    {
+        SortOrder order = value.get();
+        String text = order == null ? "" : order.displayName();
+        IdeaStatus ideaStatus = status.get();
+
+        if(ideaStatus == null)
+        {
+            return text;
+        }
+
+        return text.isEmpty()
+            ? ideaStatus.displayName()
+            : text + " · " + ideaStatus.displayName();
     }
 
     private void position()
