@@ -854,6 +854,7 @@ public class MainView
         sortMenu = new SortMenu(sortToggle, sortLabel, sortChevron, sortMenuLayer);
         sortMenu.install();
         sortMenu.valueProperty().bindBidirectional(controller.sortOrderProperty());
+        sortMenu.statusProperty().bindBidirectional(controller.statusFilterProperty());
 
         allTagsChip.getStyleClass().add("filter-chip");
         allTagsChip.setOnAction(event ->
