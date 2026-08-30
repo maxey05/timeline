@@ -4,6 +4,7 @@ import com.emgi.timeline.domain.model.Idea;
 import com.emgi.timeline.domain.model.IdeaStatus;
 import com.emgi.timeline.domain.model.Tag;
 import com.emgi.timeline.view.format.IdeaDateFormatter;
+import javafx.css.PseudoClass;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -25,6 +26,9 @@ public final class IdeaListCell extends ListCell<Idea>
     public static final int PREVIEW_CHARS = 120;
 
     public static final String IMAGES_ONLY_PREVIEW = "Attached images";
+
+    private static final PseudoClass IN_PROGRESS = PseudoClass.getPseudoClass("in-progress");
+    private static final PseudoClass COMPLETED = PseudoClass.getPseudoClass("completed");
 
     private final IdeaDateFormatter dateFormatter;
     private final RowActions rowActions;
@@ -161,6 +165,8 @@ public final class IdeaListCell extends ListCell<Idea>
 
         statusLabel.setText(glyphFor(idea.status()) + " " + idea.status().displayName());
 
+        applyStatusClasses(idea.status());
+
         if(rowActions.isOpen(idea.id()))
         {
             tray.snapOpen();
@@ -172,6 +178,12 @@ public final class IdeaListCell extends ListCell<Idea>
 
         setGraphic(tray);
         setText(null);
+    }
+
+    private void applyStatusClasses(IdeaStatus status)
+    {
+        pseudoClassStateChanged(IN_PROGRESS, status == IdeaStatus.IN_PROGRESS);
+        pseudoClassStateChanged(COMPLETED, status == IdeaStatus.COMPLETED);
     }
 
     private static List<Label> chipsFor(Idea idea)
