@@ -182,6 +182,16 @@
     -fx-border-color: transparent;
 }
 
+.idea-list .list-cell:filled:in-progress
+{
+    -fx-background-color: -surface;
+}
+
+.idea-list .list-cell:filled:completed .idea-cell-root
+{
+    -fx-opacity: 0.55;
+}
+
 .idea-list .list-cell:filled:hover
 {
     -fx-background-color: -surface-hover;
