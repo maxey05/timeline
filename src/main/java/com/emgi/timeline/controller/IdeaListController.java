@@ -41,7 +41,10 @@ public final class IdeaListController
     private final StringProperty searchText = new SimpleStringProperty(this, "searchText", "");
 
     private final ObjectProperty<SortOrder> sortOrder =
-        new SimpleObjectProperty<>(this, "sortOrder", SortOrder.NEWEST_FIRST);
+        new SimpleObjectProperty<>(this, "sortOrder", SortOrder.BY_PROGRESS);
+
+    private final ObjectProperty<IdeaStatus> statusFilter =
+        new SimpleObjectProperty<>(this, "statusFilter", null);
 
     private final ObservableList<Tag> selectedTags = FXCollections.observableArrayList();
 
@@ -59,8 +62,6 @@ public final class IdeaListController
     private final ObjectProperty<Idea> selectedIdea =
         new SimpleObjectProperty<>(this, "selectedIdea", null);
 
-    private Set<IdeaStatus> statuses = Set.of();
-
     public IdeaListController(IdeaService service)
     {
         this.service = Objects.requireNonNull(service, "service");
@@ -69,6 +70,7 @@ public final class IdeaListController
         sortOrder.addListener((observable, previous, current) -> applyQuery());
         selectedTags.addListener((ListChangeListener<Tag>) change -> applyQuery());
         master.addListener((ListChangeListener<Idea>) change -> refreshAvailableTags());
+        statusFilter.addListener((observable, previous, current) -> applyQuery());
 
         applyQuery();
     }
@@ -99,11 +101,10 @@ public final class IdeaListController
     {
         Objects.requireNonNull(newQuery, "newQuery");
 
-        this.statuses = newQuery.anyOfStatus();
-
         searchText.set(newQuery.titleContains().orElse(""));
         selectedTags.setAll(newQuery.anyOfTags());
         sortOrder.set(newQuery.sortOrder());
+        statusFilter.set(newQuery.singleStatus().orElse(null));
 
         applyQuery();
     }
@@ -116,6 +117,11 @@ public final class IdeaListController
     public ObjectProperty<SortOrder> sortOrderProperty()
     {
         return sortOrder;
+    }
+
+    public ObjectProperty<IdeaStatus> statusFilterProperty()
+    {
+        return statusFilter;
     }
 
     public ObservableList<Tag> selectedTags()
@@ -157,6 +163,7 @@ public final class IdeaListController
     {
         searchText.set("");
         selectedTags.clear();
+        statusFilter.set(null);
     }
 
     public void add(Idea idea)
@@ -245,10 +252,12 @@ public final class IdeaListController
 
     private void applyQuery()
     {
+        IdeaStatus status = statusFilter.get();
+
         query = new IdeaQuery(
             Optional.ofNullable(searchText.get()),
             Set.copyOf(selectedTags),
-            statuses,
+            status == null ? Set.of() : Set.of(status),
             sortOrder.get());
 
         filtered.setPredicate(query.toPredicate());
