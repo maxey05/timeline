@@ -33,11 +33,11 @@ class IdeaQueryTest {
     }
 
     @Test
-    void defaultQueryMatchesEverythingAndSortsNewestFirst() {
+    void defaultQueryMatchesEverythingAndGroupsByProgress() {
         IdeaQuery query = IdeaQuery.all();
 
         assertThat(matching(query)).containsExactlyElementsOf(all());
-        assertThat(query.sortOrder()).isEqualTo(SortOrder.NEWEST_FIRST);
+        assertThat(query.sortOrder()).isEqualTo(SortOrder.BY_PROGRESS);
     }
 
     @Test
