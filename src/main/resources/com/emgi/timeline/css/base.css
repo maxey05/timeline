@@ -383,6 +383,19 @@
     -fx-cursor: hand;
 }
 
+.sort-menu-section
+{
+    -fx-font-size: 10px;
+    -fx-padding: 7px 10px 3px 10px;
+}
+
+.sort-menu-separator
+{
+    -fx-min-height: 9px;
+    -fx-pref-height: 9px;
+    -fx-max-height: 9px;
+}
+
 .tag-filter-row
 {
     -fx-spacing: 10px;
