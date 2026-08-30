@@ -4,7 +4,7 @@
 
 A desktop app that serves as your second brain- organizing and managing your ideas.
 
-![Version](https://img.shields.io/badge/version-1.0.0-lightgrey)
+![Version](https://img.shields.io/badge/version-1.1.0-lightgrey)
 ![Java](https://img.shields.io/badge/Java-21-lightgrey)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 
@@ -43,7 +43,7 @@ in your home folder; no account, no server and no network traffic.
 - Create, edit and delete ideas, with validation on the title.
 - Track each idea's progress level.
 - Tag ideas freely and filter the list by any combination of tags.
-- Search titles as you type, or sort by newest or oldest.
+- Search titles as you type, or sort by newest oldest, or status.
 - Write descriptions with bullet lists, automatic link detection, and images.
 - Switch between a dark and a light theme.
 
@@ -65,7 +65,7 @@ in your home folder; no account, no server and no network traffic.
 ### Option A — download the release
 
 1. Go to the [Releases](../../releases) page and download
-   `Timeline-1.0.0-win-x64.zip` from the latest release.
+   `Timeline-1.1.0-win-x64.zip` from the latest release.
 2. Extract the zip somewhere you can keep it — `C:\Program Files\Timeline` or
    just a folder in your user directory. The app runs from wherever you put it.
 3. Run **`Timeline.exe`** from inside the extracted `Timeline` folder.
@@ -87,8 +87,8 @@ To produce your own portable build:
 
 ```bash
 mvn clean package
-jpackage --type app-image --name Timeline --app-version 1.0.0 \
-         --input target/dist --main-jar timeline-1.0.0.jar \
+jpackage --type app-image --name Timeline --app-version 1.1.0 \
+         --input target/dist --main-jar timeline-1.1.0.jar \
          --main-class com.emgi.timeline.Launcher \
          --icon packaging/icon.ico --dest target/package \
          --java-options "-XX:+AutoCreateSharedArchive" \
@@ -153,8 +153,7 @@ The description is one flowing text field with a few conveniences layered on:
 
 - **Search** (`Ctrl+F`) filters the list by title as you type.
 - **Tag chips** sit above the list. Click any number of them to narrow the list to ideas carrying *all* of the selected tags. The **All** chip resets the selection. Chips are built from the tags actually in use, so the row changes as your tags do.
-- **Sort** switches between *Newest first* and *Oldest first*.
-- **Clear filters** resets search, tags and sort in one click.
+- **Sort** switches between *Newest first*, *Oldest first*, or *Status*.
 
 ### Settings
 
@@ -196,7 +195,6 @@ Some updates to the program that I plan on implementing:
 
 
 - **Favourites / pinning** — a star on each idea and a matching filter chip.
-- **Status filter** — filter by *Incomplete* / *In progress* / *Completed*.
 - **More sort orders** — by title, by last modified
 - **Export and import** — Markdown and JSON, so ideas can leave the app
 - **Undo / redo** in the editor
