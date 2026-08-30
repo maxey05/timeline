@@ -90,8 +90,19 @@ mvn clean package
 jpackage --type app-image --name Timeline --app-version 1.0.0 \
          --input target/dist --main-jar timeline-1.0.0.jar \
          --main-class com.emgi.timeline.Launcher \
-         --icon packaging/icon.ico --dest target/package
+         --icon packaging/icon.ico --dest target/package \
+         --java-options "-XX:+AutoCreateSharedArchive" \
+         --java-options "-XX:SharedArchiveFile=$APPDIR\\timeline.jsa" \
+         --java-options "-XX:TieredStopAtLevel=1"
 ```
+
+The three `--java-options` flags trade a little peak throughput and some disk
+space (a cached `timeline.jsa` next to the jar) for a faster cold start:
+`AutoCreateSharedArchive` builds an AppCDS archive of loaded classes on first
+run and reuses it on every run after, and `TieredStopAtLevel=1` skips the
+JIT's more aggressive (and slower-to-warm-up) C2 compiler, which barely
+matters for a small desktop app that's never CPU-bound. Both work in
+classpath mode with no jlink or module-info (see ARCHITECTURE.md §11 Risk 5).
 
 ### Where your data lives
 
