@@ -20,3 +20,6 @@ Thumbs.db
 
 # Docs
 docs/
+
+# Release artifacts (uploaded as GitHub Release assets, not tracked here)
+*-win-x64.zip
