@@ -443,6 +443,17 @@
     -fx-background-color: -surface-selected;
 }
 
+.sort-menu-section
+{
+    -fx-text-fill: -text-secondary;
+}
+
+.sort-menu-separator
+{
+    -fx-background-color: -separator;
+    -fx-background-insets: 4px 8px;
+}
+
 .filter-chip
 {
     -fx-background-color: -surface;
