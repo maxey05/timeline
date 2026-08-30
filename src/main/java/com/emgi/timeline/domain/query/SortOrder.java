@@ -5,6 +5,7 @@ import java.util.Comparator;
 
 public enum SortOrder {
 
+    BY_PROGRESS("By progress"),
     NEWEST_FIRST("Newest first"),
     OLDEST_FIRST("Oldest first");
 
@@ -20,12 +21,15 @@ public enum SortOrder {
 
     public Comparator<Idea> comparator() {
         Comparator<Idea> byCreatedAt = Comparator.comparing(Idea::createdAt);
-        if (this == NEWEST_FIRST) {
+
+        if(this != OLDEST_FIRST)
             byCreatedAt = byCreatedAt.reversed();
-        }
-        return Comparator.comparingInt(SortOrder::groupRank)
-                .thenComparing(byCreatedAt)
-                .thenComparing(idea -> idea.id().value().toString());
+
+        Comparator<Idea> primary = this == BY_PROGRESS
+            ? Comparator.comparingInt(SortOrder::groupRank).thenComparing(byCreatedAt)
+            : byCreatedAt;
+
+        return primary.thenComparing(idea -> idea.id().value().toString());
     }
 
     private static int groupRank(Idea idea)
