@@ -28,7 +28,7 @@ public record IdeaQuery(
     }
 
     public static IdeaQuery all() {
-        return new IdeaQuery(Optional.empty(), Set.of(), Set.of(), SortOrder.NEWEST_FIRST);
+        return new IdeaQuery(Optional.empty(), Set.of(), Set.of(), SortOrder.BY_PROGRESS);
     }
 
     public Predicate<Idea> toPredicate() {
@@ -61,6 +61,16 @@ public record IdeaQuery(
 
     public IdeaQuery withStatuses(Set<IdeaStatus> statuses) {
         return new IdeaQuery(titleContains, anyOfTags, statuses, sortOrder);
+    }
+
+    public IdeaQuery withStatus(IdeaStatus status) {
+        return withStatuses(status == null ? Set.of() : Set.of(status));
+    }
+
+    public Optional<IdeaStatus> singleStatus() {
+        return anyOfStatus.size() == 1
+                ? anyOfStatus.stream().findFirst()
+                : Optional.empty();
     }
 
     public IdeaQuery withSortOrder(SortOrder order) {
